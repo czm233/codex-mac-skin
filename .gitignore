@@ -1,0 +1,15 @@
+media/*
+work/
+*.local.json
+!media/.gitkeep
+.DS_Store
+node_modules/
+.env
+.env.*
+!.env.example
+config.local.*
+secrets.*
+credentials.*
+# Local one-shot acceptance helpers, not product entry points.
+scripts/acceptance.command
+scripts/restart-once.mjs
