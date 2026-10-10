@@ -31,14 +31,24 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
       await sleep(250);
     }
     assert.ok(target,'fixture target ready');c=await connect(target.webSocketDebuggerUrl);
+    // Pin the initial accessibility preference; hosted macOS can enable reduced motion.
+    // The reduce/no-preference transition is exercised explicitly below.
+    await c.call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
     const bytes=await readVideo(testVideo);
     const original=await c.evaluate('getComputedStyle(document.getElementById("root")).backgroundColor');
     await apply(c,bytes);
-    await sleep(700);
-    const first=await c.evaluate(`${KEY}.status()`);
-    await sleep(700);
-    const second=await c.evaluate(`${KEY}.status()`);
-    assert.ok(first.width===1920 && first.height===1080);assert.ok(second.currentTime>first.currentTime);assert.ok(second.decodedFrames>first.decodedFrames);assert.equal(second.bufferedChunks,0);
+    const waitForPlayback=async predicate=>{
+      let status;
+      for(let i=0;i<40;i++){
+        status=await c.evaluate(`${KEY}.status()`);
+        if(predicate(status))return status;
+        await sleep(100);
+      }
+      assert.fail(`Playback did not progress: ${JSON.stringify(status)}`);
+    };
+    const first=await waitForPlayback(s=>s.width===1920&&s.height===1080&&s.decodedFrames>0);
+    const second=await waitForPlayback(s=>s.currentTime>first.currentTime&&s.decodedFrames>first.decodedFrames);
+    assert.equal(second.bufferedChunks,0);
     await c.evaluate(`${KEY}.pause()`);const paused=await c.evaluate(`${KEY}.status().currentTime`);await sleep(350);
     assert.equal(await c.evaluate(`${KEY}.status().currentTime`),paused);
     await c.evaluate(`${KEY}.resume()`);await sleep(400);assert.ok(await c.evaluate(`${KEY}.status().currentTime`)>paused);

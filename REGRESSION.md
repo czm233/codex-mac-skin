@@ -110,3 +110,5 @@ App 主题预览：npm run acceptance:ui 在隔离 WKWebView 验证图片/视频
 
 
 CI/CD 回归：版本 SemVer 校验、预发布与正式版分流、已发布跳过/草稿重试/tag 冲突；校验或上传失败不得公开 Release，安装包与校验文件齐备才发布；Pages 对同内容跳过、源码/下载版本变化更新，旧版说明及新版操作文案准确。GitHub Actions 语法用 actionlint 检查，DMG 构建与校验文件实际验证。CI 不运行需要真实 Codex 的 acceptance:app；本地照常执行。
+
+云端视频回归：播放测试显式设定初始 reduced-motion 为 no-preference，之后仍验证 reduce 时暂停；等待真实时间与解码帧推进并在超时输出状态，不依赖固定 700ms 延迟或 runner 的系统辅助功能偏好。
