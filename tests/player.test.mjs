@@ -192,8 +192,11 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
     assert.ok(await c.evaluate(`${panel}.getElementById('panel').getBoundingClientRect().left < ${dragStart.x}-100`),'reopening keeps position');
     await c.evaluate(`${panel}.getElementById('panel').querySelector('header').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
     const panelShot=await c.call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(ROOT,'work/settings-panel-test.png'),Buffer.from(panelShot.data,'base64'));
+    await c.evaluate(`${panel}.querySelector('[data-sync="dim"]').scrollIntoView({block:'center'});new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
     const copyRect=await c.evaluate(`(()=>{const r=${panel}.querySelector('[data-sync="dim"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
-    await c.call('Input.dispatchMouseEvent',{type:'mouseMoved',...copyRect});await sleep(220);
+    await c.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:10,y:10});
+    await c.call('Input.dispatchMouseEvent',{type:'mouseMoved',...copyRect});
+    for(let i=0;i<10&&await c.evaluate(`${panel}.getElementById('copy-tooltip').hidden`);i++)await sleep(100);
     assert.equal(await c.evaluate(`${panel}.getElementById('copy-tooltip').hidden`),false,'copy tooltip appears promptly');
     assert.match(await c.evaluate(`${panel}.getElementById('copy-tooltip').textContent`),/复制到 Light 方案/);
     assert.equal(await c.evaluate(`${panel}.querySelector('[data-sync="dim"]').hasAttribute('title')`),false,'no delayed native tooltip');
