@@ -48,3 +48,17 @@
 @media(max-width:1200px){.conversation{padding:32px 210px 65px 32px}.sidebar{width:180px}.example-info{width:160px;right:16px;padding:15px;font-size:11px}.task-result{flex-wrap:wrap}}
 @media(max-width:800px){.experience{width:calc(100vw - 32px)}.demo{height:850px}.conversation{padding:30px 25px 65px}.sidebar{width:160px}.example-info{display:none}.conversation h3{font-size:22px}}
 @media(max-width:540px){.experience{width:calc(100vw - 24px)}.demo{height:860px}.sidebar{display:none}.conversation{padding:25px 20px 65px}.conversation h3{font-size:20px}.rich-message,.reply{font-size:12px}.user-message{font-size:11px}#skin-panel{width:330px}}
+
+/* All demo targets remain present at every screen size. */
+.demo .landscape,.demo[data-fit=contain] .landscape{width:var(--scene-width);height:var(--scene-height);aspect-ratio:auto;left:var(--scene-left);top:var(--scene-top);transform:none}
+.demo .conversation,.demo .reply p,.demo .rich-message p,.demo .rich-message li{color:var(--p-text)}
+.demo .chat-tag,.demo .composer{color:var(--p-secondaryText)}
+.demo .sidebar{border-color:var(--p-border)}
+.demo .app-top{border-color:var(--p-border)}
+.demo .example-code>span{background:transparent}
+.param-hint{display:block;font-size:10px;line-height:1.6;opacity:.7;margin-top:5px}
+#skin-panel{--surface:24,35,46;--text:#eaf1f7;--secondary:#b9c9d4;color:var(--text);background:rgb(var(--surface))}
+.demo.light #skin-panel{--surface:246,248,250;--text:#17232e;--secondary:#40566a}
+.demo input:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:800px){.demo .example-info{display:flex;position:static;width:100%;margin-top:18px;gap:9px;flex-direction:row;flex-wrap:wrap}.demo .example-info>*{margin-right:10px}.demo .example-info small{width:100%}.demo .info-divider{width:100%}.demo .conversation{overflow:auto}.demo .sidebar{display:flex;width:145px;padding:20px 12px;gap:12px}}
+@media(max-width:540px){.demo .app-body{display:block;overflow:auto}.demo .sidebar{width:100%;height:125px;overflow:auto;display:flex;flex-wrap:wrap;flex-direction:row;gap:8px;padding:12px;background:var(--fill-sidebar)}.demo .sidebar strong,.demo .sidebar small{width:100%;margin:0}.demo .sidebar span{padding:4px 6px}.demo .conversation{overflow:visible;padding:22px 15px 75px}.demo .example-info{font-size:10px}.demo .example-info span{color:var(--p-secondaryText)}}
