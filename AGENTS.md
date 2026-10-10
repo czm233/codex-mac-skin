@@ -68,6 +68,8 @@ App 界面只保留基本标签、按钮和必要的简短状态、错误与操�
 ## CI / CD 发布约定
 
 - 默认分支 push 经 demo-sync 与 native-ci 成功后，Actions 可按 package.json 新版本创建 tag / Release，并按内容指纹更新 Pages。这是用户明确配置的流水线权限，不是代理主动 git push 的授权。
-- 开发版本包含 SemVer prerelease 时只发预发布，官网始终使用已发布的最新正式版。版本号不变时不覆盖公开 Release；tag 冲突和非本流水线草稿必须失败。
+- 本项目不存在预发布：用户明确规定“发布了就是正式版”。不得擅自使用 dev、alpha、beta、rc 等预发布版本号，也不得将 GitHub Release 标记为 prerelease；已有预发布版本号不代表用户授权预发布。
+- 每次发布使用正式版本号（如 0.4.0），CI 通过后必须为对应提交创建版本 Tag（如 v0.4.0），生成并上传可下载的 DMG 安装包及校验文件，发布正式 GitHub Release；官网的下载入口必须同步指向最新正式版安装包，不得继续停留在旧版本。
+- 发布完成须核对 Tag 对应提交、Release 正式状态、安装包与校验文件，以及线上官网实际下载链接。版本号不变时不覆盖公开 Release；tag 冲突和非本流水线草稿必须失败。
 - Pages Source 使用 workflow；不得恢复 main/docs 自动发布绕过 CI。下载链接只在部署产物中依据实际正式版资产更新，不提前把未发布链接写到线上。
 - 发布变更后验证 release.test、完整 npm test、actionlint、build:dmg、原生验收和 checksum；未实际运行远端 workflow 时必须明确未验证云端发布。

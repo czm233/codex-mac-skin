@@ -6,6 +6,8 @@ export function versionInfo(version){
 }
 export function planRelease({version,sha,tagSha,release}){
  const v=versionInfo(version);
+ if(v.prerelease)throw Error('本项目只允许正式版本，禁止预发布');
+ if(release?.prerelease)throw Error('已有 Release 被标记为预发布，不能作为正式发布跳过');
  if(release&&!release.draft){
   if(!tagSha)throw Error('已发布 Release 缺少 tag');
   for(const name of [v.asset,v.asset+'.sha256'])if(!release.assets?.some(a=>a.name===name&&a.size>0))throw Error('已发布 Release 缺少安装包或校验文件；不会自动覆盖');
@@ -54,7 +56,7 @@ export async function deliverRelease({api,version,sha,tagSha,release,bytes,check
  await upload(v);
  const uploaded=await api('releases/'+draft.id);
  for(const [name,size] of [[v.asset,bytes.length],[v.asset+'.sha256',Buffer.byteLength(checksum)]])if(!uploaded.assets.some(a=>a.name===name&&a.size===size))throw Error('资源上传未完成，保留草稿供重试');
- await api('releases/'+draft.id,{method:'PATCH',body:{draft:false,prerelease:v.prerelease,make_latest:v.prerelease?'false':'legacy'}});
+ await api('releases/'+draft.id,{method:'PATCH',body:{draft:false,prerelease:v.prerelease,make_latest:'true'}});
  return v;
 }
 export function pagesDigest(entries){

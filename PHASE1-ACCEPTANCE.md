@@ -166,3 +166,9 @@
 - 只读联机演练正确判定 create v0.4.0-dev.1 prerelease；本地准备的 Pages 产物引用已发布 v0.3.0，首次指纹 changed=true。发布单元测试覆盖冲突/重试/已发布跳过/校验错误/上传失败不公开/文案随正式版更新/指纹变化。
 - 回归评估：本次影响打包、版本和发布链路，公共主题、设置页、聊天与真实 Codex 注入未改；既有全套自动回归及隔离原生预览通过。云端 runner/环境策略、远端上传及 Pages 最终部署尚未实跑；Intel/macOS 13 未实机验证。
 - 无新增服务，测试客户端与浏览器已退出，用户原有 App/Codex 保留。本地验收入口 dist/Codex-Skin-0.4.0-dev.1-macOS.dmg、dist/Codex Skin.app；部署待验收产物 work/pages。线上 Pages 内容、公开 Release/DMG 未更新，只有 Pages 发布方式变更。
+
+## 正式发布规则修正（2026-10-10）
+
+用户明确要求不存在预发布。本轮版本改为 0.4.0，发布门禁拒绝预发布版本与被误标为预发布的 Release；正式发布必须创建 Tag、上传 DMG 和校验文件、设为 Latest、更新官网。此前 0.4.0-dev.1 记录仅表示历史状态；本轮远端执行结果以 GitHub Actions 为准。
+
+本轮本地验证：npm test 30/30、同步门禁 170 项、build:dmg（含 build:app 与 hdiutil 校验）、acceptance:ui 与 acceptance:app 只读连接均通过。未改界面或共用演示资源；官网版本文案及下载链接由部署产物随正式 Release 更新。本轮未重新验证真实 Codex 全页面矩阵。

@@ -9,7 +9,8 @@ function release(version='0.4.0'){
 }
 test('release policy distinguishes new, prerelease, published, draft and conflicting tags',()=>{
  assert.equal(planRelease({version:'0.4.0',sha}).action,'create');
- assert.equal(planRelease({version:'0.4.0-dev.1',sha}).prerelease,true);
+ for(const version of ['0.4.0-dev.1','0.4.0-alpha','0.4.0-beta.1','0.4.0-rc.1'])assert.throws(()=>planRelease({version,sha}),/禁止预发布/);
+ assert.throws(()=>planRelease({version:'0.4.0',sha,tagSha:sha,release:{...release(),prerelease:true}}),/预发布/);
  assert.equal(planRelease({version:'0.4.0',sha,tagSha:other,release:release()}).action,'skip');
  assert.throws(()=>planRelease({version:'0.4.0',sha,tagSha:other}),/其他提交/);
  assert.equal(planRelease({version:'0.4.0',sha,tagSha:sha,release:{draft:true,body:`<!-- codex-skin-cd:${sha} -->`}}).action,'resume');
@@ -43,12 +44,14 @@ test('publishing happens only after a valid DMG and both complete uploads',async
  const calls=[];
  const api=async(endpoint,options={})=>{calls.push([endpoint,options]);if(endpoint==='releases')return {id:1};if(!options.method)return {assets:[{name:filename,size:bytes.length},{name:filename+'.sha256',size:Buffer.byteLength(checksum)}]};return {};};
  const args={api,version:'0.4.0',sha,bytes,checksum,upload:async()=>{calls.push(['upload']);}};
+ await assert.rejects(deliverRelease({...args,version:'0.4.0-dev.1'}),/禁止预发布/);assert.equal(calls.length,0);
  await assert.rejects(deliverRelease({...args,checksum:'bad'}));assert.equal(calls.length,0);
  await assert.rejects(deliverRelease({...args,upload:async()=>{throw Error('upload failed');}}),/upload failed/);
  assert.ok(!calls.some(([,o])=>o?.method==='PATCH'),'failed upload must leave release unpublished');
  calls.length=0;await deliverRelease(args);
  assert.equal(calls[0][1].body.sha,sha);assert.equal(calls[1][1].body.draft,true);
  assert.equal(calls.at(-1)[1].method,'PATCH');assert.equal(calls.at(-1)[1].body.draft,false);
+ assert.equal(calls.at(-1)[1].body.prerelease,false);assert.equal(calls.at(-1)[1].body.make_latest,'true');
  calls.length=0;await deliverRelease({...args,tagSha:sha,release:release()});assert.equal(calls.length,0,'published release is never re-uploaded');
 });
 test('Pages fingerprint ignores traversal order and changes with content or download version',async()=>{
