@@ -31,7 +31,7 @@ flowchart LR
 
 ## 已发布 macOS App（v0.3.0）
 
-构建产物：`dist/Codex Skin.app`；分发镜像：`dist/Codex-Skin-0.3.0-macOS.dmg`。打开 DMG，将 App 拖到其中的 Applications 快捷方式，再从“应用程序”打开。使用者不需要安装 Node、打开终端或运行服务器。App 要求 macOS 13+，包含 Apple Silicon 与 Intel 两种架构；当前实机验证为 Apple Silicon。
+构建产物：`dist/Codex Skin.app`；分发镜像：`dist/Codex-Skin-<package.json version>-macOS.dmg`。打开 DMG，将 App 拖到其中的 Applications 快捷方式，再从“应用程序”打开。使用者不需要安装 Node、打开终端或运行服务器。App 要求 macOS 13+，包含 Apple Silicon 与 Intel 两种架构；当前实机验证为 Apple Silicon。
 
 1. 打开 App，点击 **启动并应用皮肤**。Codex 尚未启动时自动启动；已开启换肤连接时直接复用；普通启动时会提示确认重启，不会强制结束进程。
 2. 以前选过背景则恢复已保存的背景与参数；第一次使用会打开 Codex 内的设置面板，选择本地视频或图片即可。
@@ -331,3 +331,31 @@ npm test
 - `.github/workflows/demo-sync.yml`：PR 和 main/master 推送运行 `demo-sync`。CI 不先重建网页，防止把未提交的新产物补齐后误判通过。无需账号、Codex、Swift、服务器或端口。
 
 本地钩子可被 `--no-verify` 绕过，新克隆也需要安装；要强制阻止远端合并，仓库管理员需将 `demo-sync` 设为受保护分支的必需检查。工作流文件未推送前不会在 GitHub 生效。本门禁验证共用演示的一致性，不代表真实 Codex 的全页面兼容性或任意未来功能都已覆盖。
+
+
+### 自动 CI / CD
+
+默认分支推送后运行 `demo-sync` 和 `native-ci`。前者在 Ubuntu 校验工作流及 Headless 同步；后者在 macOS 运行完整测试、构建双架构 DMG、校验镜像和原生隔离预览。CI 不要求安装或连接真实 Codex，真实 Codex 连接检查仍属本地验收。
+
+两项 CI 全部通过后，默认分支当前提交才可以发布。PR、其他分支和已被新提交替代的运行不执行 CD。流水线串行处理同一分支，支持 Actions 手动重跑；同一个版本的已发布资源不覆盖。
+
+- 发布版本取自 `package.json`。新的 `0.4.0` 创建 `v0.4.0` 正式 Release；`0.4.0-dev.1` 创建同名预发布，不设为 Latest，也不替换官网正式版下载。
+- 使用 CI 校验过的 DMG artifact；确认 SHA-256 后创建精确指向本次提交的 tag，上传 DMG 和可在任意目录使用的 `.sha256` 文件，全部完成才公开 Release。中断仅留下 tag 或草稿时可重试；只有本流水线、同提交的草稿允许修复上传。已发布资源缺失、同 tag 指向不同提交等异常直接失败。
+- Pages 等发布步骤成功后准备内容。下载地址来自 GitHub 已发布的最新正式版资产，版本说明与使用步骤一并更新，不把未发布的下载链接上线。`0.3.0` 旧版只有 DMG 的情况仍可引用；新流水线发布均包含校验文件。
+- Pages 将待部署文件的内容指纹与线上 `_deployment.json` 比较；没有变化就不部署。版本号和下载链接变化也会触发部署。与最后一次部署比较，而非仅检查本次 diff，避免漏掉先前失败的更新。
+- Pages Source 必须使用 GitHub Actions，不能继续从 main/docs 直接发布，否则会绕过 CI。仓库内置 `GITHUB_TOKEN` 按 job 分配权限；PR/测试仅读取，Release 仅 contents:write，Pages 仅部署所需的 pages/id-token 权限。无需个人 Token，也不引入 Apple 开发者凭证；仍是 ad-hoc 签名、未公证。
+
+```mermaid
+flowchart LR
+    A[Push main] --> B[Headless 与 macOS CI]
+    B --> C{版本已发布?}
+    C -->|否| D[校验 DMG → Tag → 上传 → Release]
+    C -->|是| E[保留已发布版本]
+    D --> F[生成官网与正式版链接]
+    E --> F
+    F --> G{内容指纹变化?}
+    G -->|是| H[部署 Pages]
+    G -->|否| I[跳过部署]
+```
+
+完整配置位于 `.github/workflows/demo-sync.yml`。将 `demo-sync` 和 `native-ci` 同时设为分支保护必需检查，可强制阻止失败 PR 合并。修改工作流或版本号本身不代表已推送/发布；开发任务仍遵守禁止自动 push 的约定。

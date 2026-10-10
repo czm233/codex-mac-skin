@@ -64,3 +64,10 @@ App 界面只保留基本标签、按钮和必要的简短状态、错误与操�
 - `build:site` / `build:app` 内置同步门禁，`build:dmg` 继承 App 门禁。统一入口 `npm run build:all`。网页资源过期时重建并一并暂存生成文件。
 - 新克隆执行 `npm run hooks:install`；pre-commit 必须检查暂存区快照，禁止改为只检查工作区。不得覆盖已有不同钩子。
 - GitHub CI `demo-sync` 检查提交的资源及 Headless 真实样式/交互；不先自动重建掩盖漏提交。远端强制合并限制依赖管理员配置必需检查，不能仅凭工作流存在声称已启用保护。
+
+## CI / CD 发布约定
+
+- 默认分支 push 经 demo-sync 与 native-ci 成功后，Actions 可按 package.json 新版本创建 tag / Release，并按内容指纹更新 Pages。这是用户明确配置的流水线权限，不是代理主动 git push 的授权。
+- 开发版本包含 SemVer prerelease 时只发预发布，官网始终使用已发布的最新正式版。版本号不变时不覆盖公开 Release；tag 冲突和非本流水线草稿必须失败。
+- Pages Source 使用 workflow；不得恢复 main/docs 自动发布绕过 CI。下载链接只在部署产物中依据实际正式版资产更新，不提前把未发布链接写到线上。
+- 发布变更后验证 release.test、完整 npm test、actionlint、build:dmg、原生验收和 checksum；未实际运行远端 workflow 时必须明确未验证云端发布。

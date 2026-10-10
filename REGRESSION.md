@@ -107,3 +107,6 @@ App 主题预览：npm run acceptance:ui 在隔离 WKWebView 验证图片/视频
 共用演示回归：App 不包含网页设置按钮；纯色不显示网页默认风景；实际素材解码后使用共用参数效果；聊天滚动不穿透输入区，窄窗口不横向溢出，资料弹窗可打开关闭。Dark/Light 的自动配色以当前演示方案为准。组件变更同时构建两端，已安装版本不远程热更新。
 
 同步门禁：`npm run test:sync` 在隔离无端口 Headless Chrome 中对比网页与 App 预览的 DOM、实际配色/透明度/边框/文字、三档宽度与 Dark/Light、聊天滚动/输入区隔离/弹窗/本地图片；故意修改生成 CSS 或仅 App CSS 必须失败，App 构建不得继续产出二进制。pre-commit 验证暂存区坏、工作区好的情况仍被阻止。完整 npm test 包含该套测试。
+
+
+CI/CD 回归：版本 SemVer 校验、预发布与正式版分流、已发布跳过/草稿重试/tag 冲突；校验或上传失败不得公开 Release，安装包与校验文件齐备才发布；Pages 对同内容跳过、源码/下载版本变化更新，旧版说明及新版操作文案准确。GitHub Actions 语法用 actionlint 检查，DMG 构建与校验文件实际验证。CI 不运行需要真实 Codex 的 acceptance:app；本地照常执行。

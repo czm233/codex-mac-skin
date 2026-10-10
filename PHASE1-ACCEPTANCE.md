@@ -155,3 +155,14 @@
 - 验证：npm test 25/25、170 项 Headless 检查、故障注入及暂存区隔离测试通过；build:all、acceptance:ui、acceptance:app 只读连接和 diff 检查通过。本次未改变产品 UI，原生临时验收进程已退出；原先运行的 Codex Skin/Codex 保留，浏览器临时配置清理，未新增服务或端口。
 - REGRESSION 全类别已评估：本次为构建/测试入口变化，公共换肤核心及产品交互未改；相关布局/文字/透明度/输入/弹窗由真实无头浏览器覆盖，原生 WebKit 验收通过，真实 Codex 全页面矩阵未重测。手动浏览器与 Intel/macOS 13 实机范围不扩大宣称。
 - App 已重建，网页源码/构建资源校验一致；README 和 AGENTS 记录了门禁使用方式。介绍页无新增面向用户的功能，文案无需新增门禁说明。线上 Pages 和发布 DMG 未更新。直接检查入口 npm run test:sync；客户端入口 dist/Codex Skin.app，无账号或额外服务要求。
+
+### 2026-10-10 CI 后自动发布 Pages / DMG
+
+- 用户明确批准配置 push 后 CI/CD。本地工作流增加 Ubuntu demo-sync 与 macOS native-ci；两者成功后仅当前默认分支提交进入发布，PR/其他分支/过时提交不执行 CD。macOS 构建并验证双架构 DMG，交给后续发布 job，CI 不依赖真实 Codex 连接。
+- SemVer 新版本创建精确提交 tag、草稿、上传 DMG/校验文件，上传完整后才公开。正式版和预发布分流，已发布版本不覆盖，同提交自动草稿可重试；冲突及校验错误失败。当前 0.4.0-dev.1 只会发布预发布，官网保持最新正式版。
+- Pages 等 Release 步骤成功后读取实际正式版资产，更新部署产物中的下载地址、版本与使用说明；按最终内容指纹与线上 _deployment.json 比较，内容相同跳过，可补发前次失败的更新。官网旧 0.3.0 只有 DMG，仍保持兼容；不冒充已拥有 checksum。
+- 已通过 GitHub API 把 Pages Source 从 legacy main/docs 切换为 workflow，并回读确认。没有推送、创建远端 tag/Release 或部署页面，现有网站仍保留。远端 workflow 的实际运行需要后续推送验证；分支保护必需检查未配置。
+- 本地验证：npm test 30/30，170 项 Headless 断言；actionlint 1.7.7 无错误；build:site、build:dmg、acceptance:ui、acceptance:app 只读连接、git diff --check 通过。实际 DMG 通过 hdiutil verify 和 SHA-256 验证，架构 x86_64/arm64；Info.plist 版本由 package.json 生成，完整版本为 0.4.0-dev.1。
+- 只读联机演练正确判定 create v0.4.0-dev.1 prerelease；本地准备的 Pages 产物引用已发布 v0.3.0，首次指纹 changed=true。发布单元测试覆盖冲突/重试/已发布跳过/校验错误/上传失败不公开/文案随正式版更新/指纹变化。
+- 回归评估：本次影响打包、版本和发布链路，公共主题、设置页、聊天与真实 Codex 注入未改；既有全套自动回归及隔离原生预览通过。云端 runner/环境策略、远端上传及 Pages 最终部署尚未实跑；Intel/macOS 13 未实机验证。
+- 无新增服务，测试客户端与浏览器已退出，用户原有 App/Codex 保留。本地验收入口 dist/Codex-Skin-0.4.0-dev.1-macOS.dmg、dist/Codex Skin.app；部署待验收产物 work/pages。线上 Pages 内容、公开 Release/DMG 未更新，只有 Pages 发布方式变更。

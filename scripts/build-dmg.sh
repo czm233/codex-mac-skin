@@ -11,5 +11,5 @@ trap 'rm -rf "$STAGING"' EXIT
 ln -s /Applications "$STAGING/Applications"
 /usr/bin/hdiutil create -volname "Codex Skin $VERSION" -srcfolder "$STAGING" -format UDZO -ov "$DMG"
 /usr/bin/hdiutil verify "$DMG"
-/usr/bin/shasum -a 256 "$DMG" > "$DMG.sha256"
+(cd "$PROJECT_DIR/dist" && /usr/bin/shasum -a 256 "Codex-Skin-$VERSION-macOS.dmg" > "Codex-Skin-$VERSION-macOS.dmg.sha256")
 echo "$DMG"
