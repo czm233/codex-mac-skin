@@ -9,7 +9,8 @@ export async function attachSettings(api, options) {
   ui.innerHTML=`<style>
     :host{font:13px -apple-system,BlinkMacSystemFont,sans-serif;color:#eaf1f7;text-shadow:none;line-height:1.5}
     *{box-sizing:border-box}button,select,input,textarea{font:inherit}button,select{color:inherit;background:#263341;border:1px solid #485564;border-radius:8px;padding:7px 10px;cursor:pointer}button:hover{background:#344657}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid #9edbdf;outline-offset:2px}button:disabled{opacity:.4;cursor:default}
-    #panel,#toggle{pointer-events:auto}#toggle{float:right;background:#192733;box-shadow:0 3px 16px #0005}#panel{width:356px;max-width:calc(100vw - 36px);max-height:calc(100dvh - 94px);overflow:auto;background:#18232e;border:1px solid #52606c;border-radius:14px;margin-bottom:10px;box-shadow:0 12px 50px #0006;scrollbar-width:thin}
+    #panel,#toggle{pointer-events:auto}#toggle{float:right;background:#192733;box-shadow:0 3px 16px #0005}#panel{position:fixed;right:18px;bottom:58px;width:356px;max-width:calc(100vw - 36px);max-height:calc(100dvh - 94px);overflow:auto;background:#18232e;border:1px solid #52606c;border-radius:14px;margin-bottom:10px;box-shadow:0 12px 50px #0006;scrollbar-width:thin}
+    #panel>header{cursor:grab;user-select:none;touch-action:none}#panel>header[data-dragging]{cursor:grabbing}
     [hidden]{display:none!important}header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;background:#18232e;padding:16px 18px;border-bottom:1px solid #ffffff16}h2{margin:0;font-size:16px;letter-spacing:.02em}#close{background:none;border:0;font-size:20px;padding:0 6px}p{margin:5px 0;color:#aebdca;font-size:12px}.group{padding:14px 18px;border-bottom:1px solid #ffffff16}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.row+.row{margin-top:10px}.field+.field{margin-top:12px}label{display:block}output{font-variant-numeric:tabular-nums;color:#bde5e8}input[type=range]{width:100%;accent-color:#a4d9de;margin:8px 0 0;cursor:pointer}select{max-width:190px}#filename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:10px;color:#d3dde6}#notice{min-height:36px;margin:0;padding:10px 18px}footer{position:sticky;bottom:0;z-index:2;display:flex;justify-content:space-between;gap:8px;padding:12px 18px;background:#18232e;border-top:1px solid #ffffff16}.eyebrow{font-size:10px;letter-spacing:.14em;color:#9cc9d0;margin:0 0 4px}
     details{border-bottom:1px solid #ffffff16;padding:0 18px}summary{padding:14px 0;cursor:pointer;font-weight:600}details .fields{padding:0 0 16px}summary::marker{color:#9cc9d0}.color-row{display:grid;grid-template-columns:1fr 30px 108px;gap:8px;align-items:center;margin:10px 0}.color-row input[type=color]{width:30px;height:30px;padding:1px;border:1px solid #52606c;background:transparent;border-radius:6px}.color-row input[type=text]{min-width:0;width:108px;background:#101b24;color:#d8e5ee;border:1px solid #52606c;border-radius:5px;padding:5px;font:12px ui-monospace,monospace}textarea{width:100%;min-height:150px;background:#101b24;color:#d8e5ee;border:1px solid #52606c;border-radius:6px;font:11px ui-monospace,monospace;padding:8px;resize:vertical}.actions{display:flex;flex-wrap:wrap;gap:8px}.subtle{font-size:11px;color:#aebdca}#contrast{font-variant-numeric:tabular-nums}
     .sync-item{font-size:11px;padding:2px 5px;margin:0;flex-shrink:0}.field-title,.header-title,.scheme-switch{display:flex;align-items:center;gap:8px}.field-title{gap:6px;min-width:0}.field-title label{white-space:nowrap}.field.row{flex-wrap:wrap}.color-row{grid-template-columns:minmax(0,1fr) 30px 100px}.color-row input[type=text]{width:100px}#help-toggle{border-radius:50%;width:24px;height:24px;padding:0}#help{pointer-events:auto;position:fixed;inset:0;margin:auto;width:460px;max-width:calc(100vw - 40px);max-height:calc(100dvh - 48px);overflow:auto;padding:20px 24px;border:1px solid #52606c;border-radius:14px;background:#18232e;color:inherit;box-shadow:0 18px 70px #0006}#help::backdrop{background:#0008;pointer-events:auto}#help .row{margin-bottom:18px}#help-close{font-size:20px;padding:0 7px}#help p{font-size:13px}#help #notice{padding:12px 0 0}#help p+p{margin-top:9px}#variant{width:38px;height:22px;padding:2px;border-radius:20px;position:relative;background:#435568}#variant::after{content:"";display:block;width:16px;height:16px;border-radius:50%;background:#fff;transform:translateX(0)}#variant[aria-checked="true"]::after{transform:translateX(14px)}#variant[aria-checked="true"]{background:#457fa5}#filename{margin-top:12px}#notice:empty{display:none}
@@ -146,7 +147,31 @@ export async function attachSettings(api, options) {
     el('speed').disabled=status.mediaKind==='image';el('undo').disabled=!past.length;el('redo').disabled=!future.length;
     if(el('section-config').open)el('css-preview').value=api.getCSS();
   }
-  const show=value=>{hideTooltip();el('panel').hidden=!value;el('toggle').setAttribute('aria-expanded',String(value));if(value){render();el('close').focus();}else el('toggle').focus();};
+  const dragHeader=el('panel').querySelector('header');
+  dragHeader.title='拖动标题栏移动面板；双击恢复默认位置';
+  let panelPosition=null,drag=null;
+  try{const saved=JSON.parse(localStorage.getItem('cvs-panel-position'));if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))panelPosition=saved;}catch{}
+  const placePanel=()=>{
+    if(!panelPosition||el('panel').hidden)return;
+    const r=el('panel').getBoundingClientRect(),margin=12;
+    panelPosition.x=Math.max(margin,Math.min(panelPosition.x,innerWidth-r.width-margin));
+    panelPosition.y=Math.max(margin,Math.min(panelPosition.y,innerHeight-r.height-margin));
+    Object.assign(el('panel').style,{left:panelPosition.x+'px',top:panelPosition.y+'px',right:'auto',bottom:'auto'});
+  };
+  const savePosition=()=>{try{if(panelPosition)localStorage.setItem('cvs-panel-position',JSON.stringify(panelPosition));else localStorage.removeItem('cvs-panel-position');}catch{}};
+  on(dragHeader,'pointerdown',event=>{
+    if(event.button!==0||event.target.closest('button'))return;
+    hideTooltip();const r=el('panel').getBoundingClientRect();
+    drag={id:event.pointerId,x:event.clientX-r.left,y:event.clientY-r.top};
+    dragHeader.setPointerCapture(event.pointerId);dragHeader.setAttribute('data-dragging','');event.preventDefault();
+  });
+  on(dragHeader,'pointermove',event=>{if(!drag||drag.id!==event.pointerId)return;panelPosition={x:event.clientX-drag.x,y:event.clientY-drag.y};placePanel();});
+  const finishDrag=()=>{drag=null;dragHeader.removeAttribute('data-dragging');savePosition();};
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])on(dragHeader,event,finishDrag);
+  on(dragHeader,'dblclick',event=>{if(event.target.closest('button'))return;panelPosition=null;for(const key of ['left','top','right','bottom'])el('panel').style.removeProperty(key);savePosition();});
+  on(window,'resize',placePanel);
+  const panelResize=new ResizeObserver(placePanel);panelResize.observe(el('panel'));
+  const show=value=>{hideTooltip();el('panel').hidden=!value;el('toggle').setAttribute('aria-expanded',String(value));if(value){render();placePanel();el('close').focus();}else el('toggle').focus();};
   on(el('toggle'),'click',()=>show(el('panel').hidden));on(el('close'),'click',()=>show(false));
   on(host,'keydown',event=>{if(event.key==='Escape'&&!el('copy-tooltip').hidden){hideTooltip();event.stopPropagation();return;}if(event.key==='Escape'&&!el('help').open&&!el('panel').hidden){event.stopPropagation();show(false);}});
   on(el('play'),'click',()=>{api.status().manualPause?api.resume():api.pause();render();if(api.status().reducedMotion)notice('系统启用了“减弱动态效果”，视频保持暂停。');});
@@ -182,7 +207,7 @@ export async function attachSettings(api, options) {
   on(el('config-file'),'change',()=>{const file=el('config-file').files[0];el('config-file').value='';if(file)queue=(async()=>{if(file.size>65536)throw new Error('配置文件须小于 64 KiB');importConfig(await file.text());})().catch(error=>notice(error.message));});
   const transaction=(mode,action)=>new Promise((resolve,reject)=>{const tx=db.transaction('media',mode),request=action(tx.objectStore('media'));tx.oncomplete=()=>resolve(request.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Storage aborted'));});
   const originalDestroy=api.destroy;
-  api.destroy=()=>{hideTooltip();clearTimeout(feedbackTimer);dead=true;listeners.abort();host.remove();db?.close();downloads.forEach(url=>URL.revokeObjectURL(url));originalDestroy();};
+  api.destroy=()=>{panelResize.disconnect();hideTooltip();clearTimeout(feedbackTimer);dead=true;listeners.abort();host.remove();db?.close();downloads.forEach(url=>URL.revokeObjectURL(url));originalDestroy();};
   async function load(file,persist=true){
     if(busy)throw new Error('正在载入背景，请稍候。');
     if(!file.size||file.size>64*1024*1024)throw new Error('请选择小于 64 MiB 的背景文件。');

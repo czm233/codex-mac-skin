@@ -134,7 +134,7 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
     };
     await click('toggle');assert.equal(await c.evaluate(`${panel}.getElementById('panel').hidden`),false);
     // Transparent space below the expanded panel must not eat underlying clicks.
-    const gap=await c.evaluate(`(()=>{const h=document.getElementById('cvs-controls'),u=h.shadowRoot,r=h.getBoundingClientRect(),t=u.getElementById('toggle').getBoundingClientRect();return {x:r.left+5,y:t.top+t.height/2};})()`);
+    const gap=await c.evaluate(`(()=>{const h=document.getElementById('cvs-controls'),u=h.shadowRoot,r=u.getElementById('panel').getBoundingClientRect(),t=u.getElementById('toggle').getBoundingClientRect();return {x:r.left+5,y:t.top+t.height/2};})()`);
     assert.notEqual(await c.evaluate(`document.elementFromPoint(${gap.x},${gap.y})?.id`),'cvs-controls','empty settings area passes through');
     // Independent body portals remain clickable while settings are open.
     for(const role of ['menu','listbox','dialog']) {
@@ -170,6 +170,15 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
     await apply(c,bytes,.3,{panel:true,name:'fallback.mp4',preferSaved:true});
     assert.equal(await c.evaluate(`${panel}.getElementById('filename').textContent`),'background.mp4','saved video restored');
     await click('toggle');
+    const dragStart=await c.evaluate(`(()=>{const r=${panel}.getElementById('panel').getBoundingClientRect();return {x:r.x,y:r.y}})()`);
+    await c.evaluate(`${panel}.getElementById('panel').scrollTop=0`);
+    await c.call('Input.dispatchMouseEvent',{type:'mousePressed',x:dragStart.x+45,y:dragStart.y+25,button:'left',clickCount:1});
+    await c.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:dragStart.x-155,y:dragStart.y+65,button:'left',buttons:1});
+    await c.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:dragStart.x-155,y:dragStart.y+65,button:'left',clickCount:1});
+    assert.ok(await c.evaluate(`${panel}.getElementById('panel').getBoundingClientRect().left < ${dragStart.x}-100`),'settings panel can be dragged');
+    await click('close');await click('toggle');
+    assert.ok(await c.evaluate(`${panel}.getElementById('panel').getBoundingClientRect().left < ${dragStart.x}-100`),'reopening keeps position');
+    await c.evaluate(`${panel}.getElementById('panel').querySelector('header').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
     const panelShot=await c.call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(ROOT,'work/settings-panel-test.png'),Buffer.from(panelShot.data,'base64'));
     const copyRect=await c.evaluate(`(()=>{const r=${panel}.querySelector('[data-sync="dim"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     await c.call('Input.dispatchMouseEvent',{type:'mouseMoved',...copyRect});await sleep(220);

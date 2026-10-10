@@ -110,3 +110,8 @@ dragHeader.addEventListener('dblclick',event=>{
  stopDrag();panelPosition=null;Object.assign(panel.style,{left:'',top:'',right:'',bottom:''});savePanel();
 });
 const resizePanel=new ResizeObserver(()=>placePanel());resizePanel.observe(demo);resizePanel.observe(panel);
+
+const referenceDialog=$('reference-dialog'),referenceLink=$('reference-link');
+referenceLink.addEventListener('click',event=>{event.preventDefault();referenceDialog.showModal();});
+$('reference-close').addEventListener('click',()=>referenceDialog.close());
+referenceDialog.addEventListener('close',()=>referenceLink.focus({preventScroll:true}));

@@ -77,3 +77,23 @@
 @media(max-width:1200px){.demo .chat-scroll{padding:32px 210px 20px 32px}.demo .composer{margin:12px 210px 58px 32px}}
 @media(max-width:800px){.demo .chat-scroll{padding:25px 20px 16px}.demo .composer{margin:12px 20px 58px}}
 @media(max-width:540px){.demo .app-body{display:flex;flex-direction:column;overflow:hidden}.demo .sidebar{flex:0 0 90px;height:90px}.demo .conversation{flex:1;min-height:0;padding:0;overflow:hidden}.demo .chat-scroll{padding:20px 15px 16px}.demo .composer{margin:10px 15px 58px;min-height:80px}}
+
+/* Scrollbars inherit the preview scheme, never the landing page's white track. */
+.demo{color-scheme:dark;--scroll-thumb:rgba(225,235,243,.28);--scroll-hover:rgba(225,235,243,.48)}
+.demo.light{color-scheme:light;--scroll-thumb:rgba(35,48,60,.28);--scroll-hover:rgba(35,48,60,.48)}
+.demo :is(.chat-scroll,.sidebar,#skin-panel){scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+.demo :is(.chat-scroll,.sidebar,#skin-panel):hover{scrollbar-color:var(--scroll-hover) transparent}
+.demo :is(.chat-scroll,.sidebar,#skin-panel)::-webkit-scrollbar{width:6px;height:6px}
+.demo :is(.chat-scroll,.sidebar,#skin-panel)::-webkit-scrollbar-track{background:transparent}
+.demo :is(.chat-scroll,.sidebar,#skin-panel)::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:999px}
+.demo :is(.chat-scroll,.sidebar,#skin-panel)::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover)}
+.demo :is(.chat-scroll,.sidebar,#skin-panel)::-webkit-scrollbar-corner{background:transparent}
+@media(forced-colors:active){.demo :is(.chat-scroll,.sidebar,#skin-panel){scrollbar-color:auto}}
+
+#reference-dialog{width:min(440px,calc(100vw - 40px));max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--paper);color:var(--ink);box-shadow:0 16px 60px #0004}
+#reference-dialog::backdrop{background:#10201880}
+.reference-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.reference-heading h2{margin:0;font-size:21px}
+#reference-close{border:0;background:transparent;color:inherit;font-size:25px;padding:4px 8px;border-radius:5px}
+#reference-dialog p,#reference-dialog li{font-size:14px;line-height:1.9}
+#reference-dialog ul{padding-left:20px}
