@@ -72,9 +72,41 @@ $('media-file').addEventListener('change',async event=>{
  const url=URL.createObjectURL(file),node=document.createElement(video?'video':'img');node.className='local-media';node.setAttribute('aria-hidden','true');if(video){node.muted=true;node.loop=true;node.playsInline=true;}
  try{await new Promise((resolve,reject)=>{node.addEventListener(video?'loadeddata':'load',resolve,{once:true});node.addEventListener('error',reject,{once:true});node.src=url;});media?.remove();if(mediaUrl)URL.revokeObjectURL(mediaUrl);media=node;mediaUrl=url;demo.prepend(node);demo.classList.add('has-media');render();playback();notify('已载入本地背景');}catch{URL.revokeObjectURL(url);notify('素材无法读取，请换一个文件');}
 });
-const toggle=$('skin-toggle'),close=$('skin-close');function setPanel(open){panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));(open?close:toggle).focus();}
+const toggle=$('skin-toggle'),close=$('skin-close');function setPanel(open){panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)placePanel();(open?close:toggle).focus();}
 toggle.addEventListener('click',()=>setPanel(panel.hidden));close.addEventListener('click',()=>setPanel(false));panel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();setPanel(false);}});
 systemTheme.addEventListener('change',render);
 render();playback();
 
 const resizePreview=new ResizeObserver(render);resizePreview.observe(demo);
+
+// Position belongs to the preview, not to either appearance profile.
+const dragHeader=$('panel-drag'),positionKey='cvs-demo-panel-position';
+let panelPosition=null,drag=null;
+try{const saved=JSON.parse(localStorage.getItem(positionKey));if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))panelPosition=saved;}catch{}
+function savePanel(){try{if(panelPosition)localStorage.setItem(positionKey,JSON.stringify(panelPosition));else localStorage.removeItem(positionKey);}catch{}}
+function placePanel(){
+ if(panel.hidden||!panelPosition)return;
+ const margin=12;
+ panelPosition.x=Math.max(margin,Math.min(panelPosition.x,demo.clientWidth-panel.offsetWidth-margin));
+ panelPosition.y=Math.max(margin,Math.min(panelPosition.y,demo.clientHeight-panel.offsetHeight-margin));
+ Object.assign(panel.style,{left:panelPosition.x+'px',top:panelPosition.y+'px',right:'auto',bottom:'auto'});
+}
+dragHeader.title='拖动标题栏移动面板；双击恢复默认位置';
+dragHeader.addEventListener('pointerdown',event=>{
+ if(event.button!==0||event.target.closest('button'))return;
+ const box=panel.getBoundingClientRect(),parent=demo.getBoundingClientRect();
+ panelPosition={x:box.left-parent.left-demo.clientLeft,y:box.top-parent.top-demo.clientTop};
+ drag={id:event.pointerId,x:event.clientX,y:event.clientY,start:{...panelPosition}};
+ dragHeader.setPointerCapture(event.pointerId);panel.dataset.dragging='true';event.preventDefault();
+});
+dragHeader.addEventListener('pointermove',event=>{
+ if(!drag||event.pointerId!==drag.id)return;
+ panelPosition={x:drag.start.x+event.clientX-drag.x,y:drag.start.y+event.clientY-drag.y};placePanel();
+});
+function stopDrag(){if(!drag)return;drag=null;delete panel.dataset.dragging;savePanel();}
+for(const name of ['pointerup','pointercancel','lostpointercapture'])dragHeader.addEventListener(name,stopDrag);
+dragHeader.addEventListener('dblclick',event=>{
+ if(event.target.closest('button'))return;
+ stopDrag();panelPosition=null;Object.assign(panel.style,{left:'',top:'',right:'',bottom:''});savePanel();
+});
+const resizePanel=new ResizeObserver(()=>placePanel());resizePanel.observe(demo);resizePanel.observe(panel);

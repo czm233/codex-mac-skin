@@ -8,6 +8,7 @@ test('site initializes controls and opens settings without module loading',async
   constructor(tag='div'){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.events={};this.attrs={};this.clientWidth=1200;this.clientHeight=900;this.style={values:{},setProperty(k,v){this.values[k]=v;}};this.classList={toggle(){},add(){}};this.hidden=false;}
   set id(v){this._id=v;ids.set(v,this);}get id(){return this._id;}
   append(...nodes){this.children.push(...nodes);}setAttribute(k,v){this.attrs[k]=v;}
+  getBoundingClientRect(){return {left:0,top:0};} get clientLeft(){return 0;} get clientTop(){return 0;} get offsetWidth(){return 350;} get offsetHeight(){return 600;} closest(){return null;} setPointerCapture(){}
   addEventListener(k,fn){this.events[k]=fn;}focus(){}
   querySelectorAll(){return [...ids.values()].flatMap(n=>n.children).filter(n=>n.dataset.copy);}
  }
@@ -41,5 +42,14 @@ test('site initializes controls and opens settings without module loading',async
  set('safeArea','none');assert.equal(ids.get('param-safeStrength').disabled,true);
  set('textMode','dark');const lightText=ids.get('demo').style.values['--p-text'];set('textMode','light');assert.notEqual(ids.get('demo').style.values['--p-text'],lightText);
  for(const role of ['background','panel','secondaryPanel','accent','secondaryAccent','muted','highlight','text','secondaryText','border']){const input=ids.get('color-'+role);input.value='#123456';input.events.input();input.events.change();assert.equal(ids.get('demo').style.values['--p-'+role],'#123456');}
- ids.get('skin-close').events.click();assert.equal(ids.get('skin-panel').hidden,true);
+ const header=ids.get('panel-drag'),panel=ids.get('skin-panel');
+ const pointer={button:0,target:header,pointerId:1,clientX:0,clientY:0,preventDefault(){}};
+ header.events.pointerdown(pointer);header.events.pointermove({...pointer,clientX:150,clientY:100});header.events.pointerup();
+ assert.equal(panel.style.left,'150px');assert.equal(panel.style.top,'100px');
+ ids.get('skin-close').events.click();ids.get('skin-toggle').events.click();assert.equal(panel.style.left,'150px');
+ header.events.pointerdown(pointer);header.events.pointermove({...pointer,clientX:5000,clientY:5000});header.events.pointerup();
+ assert.equal(panel.style.left,'838px');assert.equal(panel.style.top,'288px');
+ header.events.dblclick(pointer);assert.equal(panel.style.left,'');assert.equal(panel.style.top,'');
+ header.events.pointerdown({...pointer,target:{closest:()=>true}});header.events.pointermove({...pointer,clientX:150});assert.equal(panel.style.left,'');
+ ids.get('skin-close').events.click();assert.equal(panel.hidden,true);
 });
