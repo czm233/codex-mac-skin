@@ -10,7 +10,8 @@
     "restore": "node src/cli.mjs restore",
     "build:app": "bash scripts/build-app.sh",
     "acceptance:app": "bash scripts/acceptance-app.sh",
-    "build:dmg": "bash scripts/build-dmg.sh"
+    "build:dmg": "bash scripts/build-dmg.sh",
+    "build:site": "node scripts/build-site.mjs"
   },
   "engines": {
     "node": ">=22"

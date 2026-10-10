@@ -1,0 +1,14 @@
+import fs from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+const hash=s=>createHash('sha256').update(s).digest('hex').slice(0,12);
+const appearance=await fs.readFile('src/theme.mjs','utf8');
+await fs.writeFile('docs/appearance.mjs',appearance);
+const demo=await fs.readFile('docs/demo.js','utf8');
+const bundle='(()=>{\n'+appearance.replace('export function','function')+'\n'+demo.replace("import { createAppearance } from './appearance.mjs';",'')+'\n})();\n';
+const filename=`demo-${hash(bundle)}.js`;
+await fs.writeFile('docs/'+filename,bundle);
+const css=await fs.readFile('docs/style.css','utf8');
+let html=await fs.readFile('docs/index.html','utf8');
+html=html.replace(/href="style.css[^\"]*"/,`href="style.css?v=${hash(css)}"`).replace(/<script[^>]*src="demo[^\"]*"[^>]*><\/script>/,`<script src="${filename}" defer></script>`);
+await fs.writeFile('docs/index.html',html);
+console.log(filename);
