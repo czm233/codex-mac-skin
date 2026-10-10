@@ -20,5 +20,14 @@ test('site initializes controls and opens settings without module loading',async
  ids.get('scheme').events.click();assert.equal(ids.get('scheme').attrs['aria-checked'],'true');
  ids.get('copy-all').events.click();assert.match(ids.get('demo-status').textContent,/复制到 Dark/);
  ids.get('undo').events.click();assert.equal(ids.get('demo-status').textContent,'已撤销');
+ const slider=ids.get('param-focusX');
+ assert.equal(Number(slider.value),50);
+ for(const value of [55,70,85,100]){slider.value=String(value);slider.events.input();}
+ slider.events.change();
+ ids.get('undo').events.click();assert.equal(Number(slider.value),50,'one undo restores entire drag');
+ ids.get('redo').events.click();assert.equal(Number(slider.value),100,'one redo restores drag endpoint');
+ slider.value='80';slider.events.input();slider.events.change();
+ ids.get('undo').events.click();assert.equal(Number(slider.value),100,'next drag is separate');
+ ids.get('undo').events.click();assert.equal(Number(slider.value),50);
  ids.get('skin-close').events.click();assert.equal(ids.get('skin-panel').hidden,true);
 });

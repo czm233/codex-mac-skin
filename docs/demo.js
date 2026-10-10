@@ -7,8 +7,18 @@ const defaults=mode=>createAppearance({textMode:mode==='dark'?'light':'dark',dim
 let mode='dark',profiles={dark:defaults('dark'),light:defaults('light')},past=[],future=[],timer,media=null,mediaUrl=null,paused=false;
 const other=()=>mode==='dark'?'light':'dark';
 function notify(text){clearTimeout(timer);$('demo-status').textContent=text;timer=setTimeout(()=>{$('demo-status').textContent='';},3000);}
-function record(){past.push(clone(profiles));if(past.length>60)past.shift();future=[];}
-function edit(patch){record();model.set(patch);profiles[mode]=model.get();render();}
+let continuousControl=null;
+function record(){continuousControl=null;past.push(clone(profiles));if(past.length>60)past.shift();future=[];}
+function edit(patch,control=null){
+ const next=model.set(patch);
+ if(JSON.stringify(next)===JSON.stringify(profiles[mode]))return;
+ if(!control||continuousControl!==control){record();continuousControl=control;}
+ profiles[mode]=next;render();
+}
+function continuous(input,patch){
+ input.addEventListener('input',()=>edit(patch(),input));
+ for(const event of ['change','blur','pointercancel','pointerdown'])input.addEventListener(event,()=>{continuousControl=null;});
+}
 function copy(key){record();const target=other();if(key==='all')profiles[target]=clone(profiles[mode]);else if(key.startsWith('colors.')){const role=key.slice(7);profiles[target].colors[role]=model.palette(mode==='dark')[role];}else profiles[target][key]=profiles[mode][key];render();notify(`已${key==='all'?'全部复制':'复制'}到 ${target==='dark'?'Dark':'Light'}`);}
 const copyIcon='<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5V3A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"/></svg>';
 function copyButton(key,label){const b=document.createElement('button');b.className='copy-param';b.dataset.copy=key;b.dataset.label=label;b.innerHTML=copyIcon;b.addEventListener('click',()=>copy(key));return b;}
@@ -19,10 +29,10 @@ for(const [key,item] of Object.entries(schema)){
  const row=document.createElement('div');row.className='field-row';const label=document.createElement('label');label.htmlFor='param-'+key;label.textContent=item.label;row.append(label,copyButton(key,item.label));field.append(row);
  const input=document.createElement(item.choices?'select':'input');input.id='param-'+key;
  if(item.choices){for(const [value,text] of Object.entries(item.choices)){const option=document.createElement('option');option.value=value;option.textContent=text;input.append(option);}input.addEventListener('change',()=>edit({[key]:input.value}));}
- else{input.type='range';input.min=item.min;input.max=item.max;input.step=item.step;const output=document.createElement('output');output.id='value-'+key;output.htmlFor=input.id;row.append(output);input.addEventListener('input',()=>edit({[key]:item.transparency?1-Number(input.value):Number(input.value)}));}
+ else{input.type='range';input.min=item.min;input.max=item.max;input.step=item.step;const output=document.createElement('output');output.id='value-'+key;output.htmlFor=input.id;row.append(output);continuous(input,()=>({[key]:item.transparency?1-Number(input.value):Number(input.value)}));}
  field.append(input);$('fields-'+item.group).append(field);
 }
-for(const [role,labelText] of Object.entries(model.colorLabels)){const row=document.createElement('div');row.className='color-field field-row';const label=document.createElement('label');label.htmlFor='color-'+role;label.textContent=labelText;const input=document.createElement('input');input.type='color';input.id='color-'+role;input.addEventListener('input',()=>edit({colors:{...model.get().colors,[role]:input.value}}));row.append(label,copyButton('colors.'+role,labelText),input);$('fields-colors').append(row);}
+for(const [role,labelText] of Object.entries(model.colorLabels)){const row=document.createElement('div');row.className='color-field field-row';const label=document.createElement('label');label.htmlFor='color-'+role;label.textContent=labelText;const input=document.createElement('input');input.type='color';input.id='color-'+role;continuous(input,()=>({colors:{...model.get().colors,[role]:input.value}}));row.append(label,copyButton('colors.'+role,labelText),input);$('fields-colors').append(row);}
 const rgba=(hex,alpha)=>{const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));return `rgba(${rgb.join(',')},${alpha})`;};
 function render(){
  model.reset();model.set(profiles[mode]);const s=model.get(),p=model.palette(mode==='dark');
@@ -41,10 +51,10 @@ function render(){
  for(const button of panel.querySelectorAll('[data-copy]')){button.title=`将${button.dataset.label}从 ${mode} 复制到 ${other()}`;button.setAttribute('aria-label',button.title);}
  $('undo').disabled=!past.length;$('redo').disabled=!future.length;
 }
-$('scheme').addEventListener('click',()=>{mode=other();render();notify('已切换到 '+(mode==='dark'?'Dark':'Light'));});
+$('scheme').addEventListener('click',()=>{continuousControl=null;mode=other();render();notify('已切换到 '+(mode==='dark'?'Dark':'Light'));});
 $('copy-all').addEventListener('click',()=>copy('all'));
-$('undo').addEventListener('click',()=>{if(!past.length)return;future.push(clone(profiles));profiles=past.pop();render();notify('已撤销');});
-$('redo').addEventListener('click',()=>{if(!future.length)return;past.push(clone(profiles));profiles=future.pop();render();notify('已重做');});
+$('undo').addEventListener('click',()=>{continuousControl=null;if(!past.length)return;future.push(clone(profiles));profiles=past.pop();render();notify('已撤销');});
+$('redo').addEventListener('click',()=>{continuousControl=null;if(!future.length)return;past.push(clone(profiles));profiles=future.pop();render();notify('已重做');});
 $('reset-demo').addEventListener('click',()=>{record();profiles[mode]=defaults(mode);render();notify('已重置当前方案');});
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 function playback(){const stop=paused||reduced.matches;demo.classList.toggle('paused',stop);if(media?.tagName==='VIDEO'){if(stop)media.pause();else media.play().catch(()=>notify('点击播放继续'));}$('motion').disabled=reduced.matches||media?.tagName==='IMG';$('motion').textContent=reduced.matches?'已减弱动态':media?.tagName==='IMG'?'图片背景':stop?'播放动态':'暂停动态';}
