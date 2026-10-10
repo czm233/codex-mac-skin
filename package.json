@@ -1,8 +1,17 @@
 {
   "name": "codex-video-skin",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node --test tests/*.test.mjs", "apply": "node src/cli.mjs apply", "status": "node src/cli.mjs status", "restore": "node src/cli.mjs restore"},
-  "engines": {"node": ">=22"}
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "apply": "node src/cli.mjs apply",
+    "status": "node src/cli.mjs status",
+    "restore": "node src/cli.mjs restore",
+    "build:app": "bash scripts/build-app.sh",
+    "acceptance:app": "bash scripts/acceptance-app.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

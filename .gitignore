@@ -13,3 +13,6 @@ credentials.*
 # Local one-shot acceptance helpers, not product entry points.
 scripts/acceptance.command
 scripts/restart-once.mjs
+
+# Generated native application bundles and archives.
+dist/

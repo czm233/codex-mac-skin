@@ -1,3 +1,4 @@
+import {createCompatibility} from './compatibility.mjs';
 import fs from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {attachSettings} from './panel.mjs';
@@ -6,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {connect} from './cdp.mjs';
 import {installVideoSkin} from './renderer.mjs';
+import {createAppearance} from './theme.mjs';
 
 export const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const PORT=10270;
@@ -21,7 +23,7 @@ export async function readVideo(filename) {
 }
 
 export async function apply(client, bytes, dim=0.30, options={}) {
-  await client.evaluate(`(${installVideoSkin.toString()})(${JSON.stringify({dim})})`);
+  await client.evaluate(`(${installVideoSkin.toString()})(${JSON.stringify({dim})},${createAppearance.toString()},${createCompatibility.toString()})`);
   try {
     await client.evaluate(`${KEY}.begin(${bytes.length})`);
     for(let offset=0;offset<bytes.length;offset+=256*1024) {
@@ -34,6 +36,13 @@ export async function apply(client, bytes, dim=0.30, options={}) {
   } catch(error) {
     await client.evaluate(`${KEY}?.destroy()`).catch(()=>{}); throw error;
   }
+}
+
+// Restore browser-owned media even when the original disk copy was moved.
+export async function restoreSaved(client) {
+  await client.evaluate(`(${installVideoSkin.toString()})({},${createAppearance.toString()},${createCompatibility.toString()})`);
+  await client.evaluate(`(${attachSettings.toString()})(${KEY},${JSON.stringify({id:'unselected',name:'请选择背景',preferSaved:true})})`);
+  return client.evaluate(`${KEY}.status()`);
 }
 
 // Refuse a browser or unrelated service on the registered app port.
@@ -81,7 +90,8 @@ async function main() {
   const allowed=['apply','status','pause','resume','restore','dim','glass','fit','wait-apply'];
   if(!allowed.includes(command)) throw new Error(`Commands: ${allowed.join(', ')}`);
   const file=arg?path.resolve(arg):path.join(ROOT,'media/background.mp4');
-  const bytes=['apply','wait-apply'].includes(command)?await readVideo(file):null;
+  const applying=['apply','wait-apply'].includes(command);
+  const bytes=applying?await readVideo(file).catch(error=>{if(!arg&&error.code==='ENOENT')return null;throw error;}):null;
   let clients;
   if(command==='wait-apply') {
     for(let i=0;i<45;i++) {try {clients=await appClients();break;} catch {await sleep(1000);}}
@@ -90,7 +100,8 @@ async function main() {
   try {
     for(const c of clients) {
       let result;
-      if(bytes) result=await apply(c,bytes,.3,{panel:true,name:path.basename(file),preferSaved:!arg});
+      if(applying&&!bytes) result=await restoreSaved(c);
+      else if(bytes) result=await apply(c,bytes,.3,{panel:true,name:path.basename(file),preferSaved:!arg});
       else if(command==='dim') {
         const value=Number(arg); if(!Number.isFinite(value)||value<0||value>0.9) throw new Error('Dim must be between 0 and 0.9');
         result=await c.evaluate(`${KEY}?.setDim(${value}) ?? {active:false}`);
