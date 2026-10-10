@@ -25,3 +25,17 @@ function renderMotion() {
 motion.addEventListener('click', () => { demo.classList.toggle('paused'); motion.setAttribute('aria-pressed', String(demo.classList.contains('paused'))); renderMotion(); });
 reduced.addEventListener('change', renderMotion);
 renderMotion(); update();
+
+const toggle = document.getElementById('skin-toggle');
+const panel = document.getElementById('skin-panel');
+const close = document.getElementById('skin-close');
+function setPanel(open) {
+  panel.hidden = !open;
+  toggle.setAttribute('aria-expanded', String(open));
+  (open ? close : toggle).focus();
+}
+toggle.addEventListener('click', () => setPanel(panel.hidden));
+close.addEventListener('click', () => setPanel(false));
+panel.addEventListener('keydown', event => {
+  if (event.key === 'Escape') { event.stopPropagation(); setPanel(false); }
+});
