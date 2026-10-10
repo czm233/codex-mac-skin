@@ -25,5 +25,4 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 /usr/bin/codesign --force --sign - "$APP"
 /usr/bin/codesign --verify --strict "$APP"
-/usr/bin/ditto -c -k --keepParent "$APP" "$PROJECT_DIR/dist/Codex-Skin-macOS.zip"
 echo "$APP"

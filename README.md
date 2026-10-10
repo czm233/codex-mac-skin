@@ -4,7 +4,7 @@
 
 ## macOS App（推荐）
 
-构建产物：`dist/Codex Skin.app`；分发压缩包：`dist/Codex-Skin-macOS.zip`。解压后双击 App，也可以把它拖进“应用程序”。使用者不需要安装 Node、打开终端或运行服务器。App 要求 macOS 13+，包含 Apple Silicon 与 Intel 两种架构；当前实机验证为 Apple Silicon。
+构建产物：`dist/Codex Skin.app`；分发镜像：`dist/Codex-Skin-0.3.0-macOS.dmg`。打开 DMG，将 App 拖到其中的 Applications 快捷方式，再从“应用程序”打开。使用者不需要安装 Node、打开终端或运行服务器。App 要求 macOS 13+，包含 Apple Silicon 与 Intel 两种架构；当前实机验证为 Apple Silicon。
 
 1. 打开 App，点击 **启动并应用皮肤**。Codex 尚未启动时自动启动；已开启换肤连接时直接复用；普通启动时会提示确认重启，不会强制结束进程。
 2. 以前选过背景则恢复已保存的背景与参数；第一次使用会打开 Codex 内的设置面板，选择本地视频或图片即可。
@@ -25,7 +25,7 @@ App 的 Swift 层只负责启动、连接与操作反馈。构建时，`scripts/
 
 ### 构建与验收
 
-开发机安装 Xcode Command Line Tools 和 Node.js 22+ 后运行 `npm run build:app`；不需要 npm install。`npm run acceptance:app` 启动真实 App，点击检查连接并输出结果 JSON，完成后退出。此验收要求 Codex 已打开本机换肤连接，不会自动重启或改变背景。`npm test` 验证共享核心的真实 Chromium 播放、交互、参数和恢复。
+开发机安装 Xcode Command Line Tools 和 Node.js 22+ 后运行 `npm run build:app`；不需要 npm install。运行 `npm run build:dmg` 会重新构建 App 并生成经过校验的 DMG。`npm run acceptance:app` 启动真实 App，点击检查连接并输出结果 JSON，完成后退出。此验收要求 Codex 已打开本机换肤连接，不会自动重启或改变背景。`npm test` 验证共享核心的真实 Chromium 播放、交互、参数和恢复。
 
 当前包仅做 **ad-hoc 本机签名**，尚未使用 Developer ID 签名与 Apple 公证。适合本机试用；公开分发前仍需开发者证书、公证与下载来源验证。未实现自动更新、开机启动或后台驻留。官方 Codex 更新可能改变调试接口或页面结构，需回归验证。
 
