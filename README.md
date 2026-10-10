@@ -1,5 +1,7 @@
 # Codex Video Skin · macOS 本地皮肤工具
 
+[项目展示页](https://czm233.github.io/codex-mac-skin/) · [下载 DMG](https://github.com/czm233/codex-mac-skin/releases/latest)
+
 把本地视频或图片放在 Codex 原生界面背后，视频静音循环播放。代码不修改 ChatGPT.app、账号、模型设置或原有 DreamSkin 配置。
 
 ## macOS App（推荐）
