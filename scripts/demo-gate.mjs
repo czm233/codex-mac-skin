@@ -33,7 +33,7 @@ export async function checkDemoSync({appPreview}={}){
   if(!result.ok)throw Error('Headless 同步检查失败：'+result.error);
   console.log(`demo-sync: resources match; ${result.checks} headless checks passed`);
   return result;
- }finally{await fs.rm(directory,{recursive:true,force:true});}
+ }finally{await fs.rm(directory,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
  try{await checkDemoSync({appPreview:process.argv[2]});}catch(error){console.error(error.message);process.exitCode=1;}
