@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<iframe id="site" src="site/index.html"></iframe><iframe id="native" src="native/preview.html"></iframe>
+<script>
+globalThis.demoGateResult=(async()=>{
+ let checks=0;const errors=[];
+ const assert=(value,message)=>{checks++;if(!value)throw Error(message);};
+ const delay=()=>new Promise(r=>setTimeout(r,50));
+ const frames=[document.getElementById('site'),document.getElementById('native')];
+ try{
+  for(let i=0;i<100&&(!frames[0].contentWindow.__demoLibraryReady||!frames[1].contentWindow.skinPreview);i++)await delay();
+  const [site,native]=frames.map(f=>f.contentWindow);
+  for(const w of [site,native])w.addEventListener('error',e=>errors.push(e.message));
+  await site.__demoLibraryReady;
+  assert(!!native.skinPreview,'native preview failed to initialize');
+  assert(site.document.querySelector('.app-body').innerHTML===native.document.querySelector('.app-body').innerHTML,'workspace content differs');
+  const $=id=>site.document.getElementById(id);
+  const set=(id,value)=>{const input=$(id);input.value=value;input.dispatchEvent(new site.Event(input.tagName==='SELECT'?'change':'input',{bubbles:true}));};
+  const snapshot=w=>{
+   const selectors=['.sidebar','.conversation','.user-message','.composer','.example-code','.example-info','.rich-message a'];
+   return selectors.map(selector=>{
+    const s=w.getComputedStyle(w.document.querySelector(selector));
+    return [selector,...['color','backgroundColor','borderTopColor','borderTopWidth','borderRadius','textShadow','opacity'].map(k=>s[k])];
+   });
+  };
+  for(const width of [500,760,1200])for(const mode of ['dark','light'])for(const alpha of [0,.5,1]){
+   for(const f of frames){f.style.width=width+'px';f.style.height='740px';}
+   if(($('scheme').getAttribute('aria-checked')==='true')!==(mode==='light'))$('scheme').click();
+   const profile={textMode:'auto',dim:.27,sidebar:alpha,composer:alpha,info:alpha,code:alpha,chat:alpha,bubble:alpha,radius:17,borderWidth:2,shadow:.2,brightness:.85,contrast:1.1,saturation:.8,blur:2,focusX:34,focusY:63,fit:'contain',safeArea:'left',safeStrength:.4,speed:1.2,taskMode:'full'};
+   // Use real page controls, including their transparency-to-opacity conversion.
+   for(const [key,value] of Object.entries(profile)){
+    if(!$('param-'+key))continue;
+    const transparency=['sidebar','composer','info','code','chat','bubble'].includes(key);
+    set('param-'+key,transparency?1-value:value);
+   }
+   // Build the validated native profile from the actual controls to honor schema choices.
+   const current={};for(const key of Object.keys(profile))if($('param-'+key)){
+    const input=$('param-'+key);current[key]=input.tagName==='SELECT'?input.value:Number(input.value);
+    if(['sidebar','composer','info','code','chat','bubble'].includes(key))current[key]=1-current[key];
+   }
+   current.colors={accent:mode==='dark'?'#11bbcc':'#bb4411',text:mode==='dark'?'#eeefff':'#112233',panel:mode==='dark'?'#223344':'#ddeeff'};
+   for(const [role,value] of Object.entries(current.colors))set('color-'+role,value);
+   native.skinPreview.begin(current,mode,mode+width+alpha);
+   await delay();
+   assert(JSON.stringify(snapshot(site))===JSON.stringify(snapshot(native)),`computed theme differs: ${mode}, ${width}px, alpha=${alpha}`);
+   for(const w of [site,native]){
+    const d=w.document,c=d.querySelector('.chat-scroll'),input=d.querySelector('.composer');
+    assert(c.getBoundingClientRect().bottom<=input.getBoundingClientRect().top+1,'chat overlaps composer');
+    c.scrollTop=c.scrollHeight;assert(c.scrollTop>0,'chat cannot scroll');
+    d.getElementById('reference-link').click();assert(d.getElementById('reference-dialog').open,'reference dialog does not open');
+    d.getElementById('reference-close').click();assert(!d.getElementById('reference-dialog').open,'reference dialog does not close');
+   }
+  }
+  // Decode the same local image via each host's public input path.
+  const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aO1sAAAAASUVORK5CYII=';
+  const bytes=Uint8Array.from(atob(png),c=>c.charCodeAt(0)),transfer=new site.DataTransfer();
+  transfer.items.add(new site.File([bytes],'fixture.png',{type:'image/png'}));
+  $('media-file').files=transfer.files;$('media-file').dispatchEvent(new site.Event('change'));
+  native.skinPreview.begin({fit:'contain',blur:2,focusX:34,focusY:63},'light','image');
+  native.skinPreview.media(bytes.length,'image/png','image');native.skinPreview.append(png,'image');await native.skinPreview.finish('image');
+  for(let i=0;i<100&&!site.document.querySelector('.local-media');i++)await delay();
+  const photo=site.document.querySelector('.local-media');
+  assert(photo?.naturalWidth===1&&native.skinPreview.status().width===1,'local image did not decode on both hosts');
+  for(const w of [site,native]){const node=w.document.querySelector('.local-media');assert(w.getComputedStyle(node).objectFit==='contain','media fit differs');}
+  assert(!native.document.getElementById('skin-toggle'),'native preview leaked the settings panel');
+  $('skin-toggle').click();assert(!$('skin-panel').hidden,'site settings panel stopped working');$('skin-close').click();
+  assert(!errors.length,errors.join('; '));
+  return {ok:true,checks};
+ }catch(e){return {ok:false,checks,error:e.stack||String(e)};}
+})();
+</script></body></html>

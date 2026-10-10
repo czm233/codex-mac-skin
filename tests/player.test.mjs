@@ -1,3 +1,5 @@
+import {createSkinLibraryModel} from '../src/library.mjs';
+import {createAppearance} from '../src/theme.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -467,6 +469,32 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
     assert.equal((await c.evaluate(`${KEY}.status()`)).mediaKind,'image');
     await c.evaluate(payload);
     assert.equal(await c.evaluate('document.querySelectorAll("#cvs-controls").length'),1,'reapplying App payload leaves one panel');
+    // First-phase personal library: actual panel events, offline re-injection,
+    // save/copy, pure background, failed switch and explicit rollback.
+    await c.evaluate(`${panel}.getElementById('skin-copy-name').value='测试副本';${panel}.getElementById('skin-copy').click()`);
+    await c.evaluate(`${KEY}.settingsPanel.whenIdle()`);
+    assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().name`),'测试副本');
+    await c.evaluate(`${panel}.getElementById('dim').value=42;${panel}.getElementById('dim').dispatchEvent(new Event('input'))`);
+    await c.evaluate(`${KEY}.settingsPanel.whenIdle()`);
+    assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().dirty`),true);
+    await restoreSaved(c);
+    assert.equal((await c.evaluate(`${KEY}.getSettings()`)).dim,.42);
+    assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().dirty`),true);
+    await c.evaluate(`${panel}.getElementById('skin-save').click()`);await c.evaluate(`${KEY}.settingsPanel.whenIdle()`);
+    await c.evaluate(`window.testLibraryModel=(${createSkinLibraryModel})(${createAppearance});window.testLibraryState=testLibraryModel.empty()`);
+    await c.evaluate(`(async()=>{const a=${KEY}.settingsPanel.library;window.testLibraryState=testLibraryModel.edit(testLibraryState,{type:'receive',...await a.snapshot()});await a.acknowledge(testLibraryState.receipts);})()`);
+    assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().pending`),0);
+    await c.evaluate(`window.testPure={id:'pure-test',name:'纯色测试',revision:1,asset:null,profiles:{dark:{textMode:'light',dim:.1},light:{textMode:'dark',dim:.2}}}`);
+    await c.evaluate(`${KEY}.settingsPanel.library.activate(testPure,'discard')`);await c.evaluate(`${KEY}.settingsPanel.library.finalize()`);
+    assert.equal((await c.evaluate(`${KEY}.status()`)).mediaKind,'none');assert.equal(await c.evaluate(`${KEY}.getMediaBlob()===null`),true);
+    assert.equal(await c.evaluate(`${panel}.getElementById('play').disabled && ${panel}.getElementById('speed').disabled`),true,'pure skins have no playback controls');
+    await assert.rejects(()=>c.evaluate(`${KEY}.settingsPanel.library.activate({...testPure,asset:'f'.repeat(64)},'discard')`),/未缓存/);
+    assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().skinId`),'pure-test');
+    await c.evaluate(`${panel}.getElementById('dim').value=30;${panel}.getElementById('dim').dispatchEvent(new Event('input'))`);await c.evaluate(`${KEY}.settingsPanel.whenIdle()`);
+    await c.evaluate(`${KEY}.settingsPanel.library.activate({...testPure,id:'other-pure'},'discard')`);await c.evaluate(`${KEY}.settingsPanel.library.rollback()`);
+    assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().skinId`),'pure-test');assert.equal(await c.evaluate(`${KEY}.settingsPanel.library.status().dirty`),true);
+    assert.equal((await c.evaluate(`${KEY}.getSettings()`)).dim,.3);
+    await restoreSaved(c);assert.equal((await c.evaluate(`${KEY}.status()`)).mediaKind,'none');assert.equal((await c.evaluate(`${KEY}.getSettings()`)).dim,.3);
     await c.evaluate(`${KEY}.destroy()`);
     assert.equal(await c.evaluate('document.querySelectorAll("#cvs-video,#cvs-veil,#cvs-style").length'),0);
     assert.equal(await c.evaluate('getComputedStyle(document.getElementById("root")).backgroundColor'),original);

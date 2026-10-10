@@ -1,3 +1,4 @@
+import {createLibrarySession} from './library-session.mjs';
 import {createCompatibility} from './compatibility.mjs';
 import fs from 'node:fs/promises';
 import {createHash} from 'node:crypto';
@@ -12,6 +13,7 @@ import {createAppearance} from './theme.mjs';
 export const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const PORT=10270;
 export const KEY='window.__codexVideoSkinV1';
+const coreRevision=createHash('sha256').update([installVideoSkin,createAppearance,createCompatibility,attachSettings,createLibrarySession].join('')).digest('hex').slice(0,16);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 export async function readVideo(filename) {
@@ -23,6 +25,7 @@ export async function readVideo(filename) {
 }
 
 export async function apply(client, bytes, dim=0.30, options={}) {
+  await client.evaluate(`${KEY}?.settingsPanel?.library?.checkpoint()`);
   await client.evaluate(`(${installVideoSkin.toString()})(${JSON.stringify({dim})},${createAppearance.toString()},${createCompatibility.toString()})`);
   try {
     await client.evaluate(`${KEY}.begin(${bytes.length})`);
@@ -31,7 +34,8 @@ export async function apply(client, bytes, dim=0.30, options={}) {
       await client.evaluate(`${KEY}.append(${JSON.stringify(chunk)})`);
     }
     await client.evaluate(`${KEY}.commit()`);
-    if(options.panel)await client.evaluate(`(${attachSettings.toString()})(${KEY},${JSON.stringify({id:createHash('sha256').update(bytes).digest('hex'),name:options.name,preferSaved:options.preferSaved})})`);
+    if(options.panel)await client.evaluate(`(${attachSettings.toString()})(${KEY},${JSON.stringify({id:createHash('sha256').update(bytes).digest('hex'),name:options.name,preferSaved:options.preferSaved})},${createLibrarySession.toString()})`);
+    await client.evaluate(`${KEY}.buildRevision=${JSON.stringify(coreRevision)}`);
     return await client.evaluate(`${KEY}.status()`);
   } catch(error) {
     await client.evaluate(`${KEY}?.destroy()`).catch(()=>{}); throw error;
@@ -40,8 +44,11 @@ export async function apply(client, bytes, dim=0.30, options={}) {
 
 // Restore browser-owned media even when the original disk copy was moved.
 export async function restoreSaved(client) {
+  const migrationConfig=await client.evaluate(`${KEY}?.settingsPanel&&!${KEY}.settingsPanel.library?${KEY}.settingsPanel.exportConfig():null`);
+  await client.evaluate(`${KEY}?.settingsPanel?.library?.checkpoint()`);
   await client.evaluate(`(${installVideoSkin.toString()})({},${createAppearance.toString()},${createCompatibility.toString()})`);
-  await client.evaluate(`(${attachSettings.toString()})(${KEY},${JSON.stringify({id:'unselected',name:'请选择背景',preferSaved:true})})`);
+  await client.evaluate(`(${attachSettings.toString()})(${KEY},${JSON.stringify({id:'unselected',name:'请选择背景',preferSaved:true,migrationConfig})},${createLibrarySession.toString()})`);
+  await client.evaluate(`${KEY}.buildRevision=${JSON.stringify(coreRevision)}`);
   return client.evaluate(`${KEY}.status()`);
 }
 

@@ -108,6 +108,7 @@ export function installVideoSkin(config, createAppearance, createCompatibility) 
     const nextKind=blob.type.startsWith('image/')?'image':'video';
     if(nextKind==='image'&&!['image/png','image/jpeg','image/webp'].includes(blob.type))throw new Error('图片仅支持 PNG、JPEG、WebP');
     const probe=nextKind==='image'?new Image():document.createElement('video'),next=URL.createObjectURL(blob);
+    const previous={url,mediaBlob,kind,size,active,lastError};
     loading=true;
     try{
       await new Promise((resolve,reject)=>{
@@ -126,7 +127,13 @@ export function installVideoSkin(config, createAppearance, createCompatibility) 
         await new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(new Error('Video decoding timed out')),12000);const finish=err=>{clearTimeout(timer);video.removeEventListener('loadeddata',loaded);video.removeEventListener('error',failed);err?reject(err):resolve();};const loaded=()=>finish();const failed=()=>finish(new Error('Unsupported video codec'));video.addEventListener('loadeddata',loaded,{once:true});video.addEventListener('error',failed,{once:true});video.load();});
       }
       if(old)URL.revokeObjectURL(old);video.hidden=kind!=='video';picture.hidden=kind!=='image';active=true;lastError=null;updateStyles();return status();
-    }catch(error){if(url!==next)URL.revokeObjectURL(next);throw error;}
+    }catch(error){
+      if(url===next){url=previous.url;mediaBlob=previous.mediaBlob;kind=previous.kind;size=previous.size;active=previous.active;lastError=previous.lastError;
+        video.pause();video.removeAttribute('src');picture.removeAttribute('src');
+        if(url){if(kind==='image')picture.src=url;else video.src=url;}video.load();
+        video.hidden=!active||kind!=='video';picture.hidden=!active||kind!=='image';updateStyles();}
+      URL.revokeObjectURL(next);throw error;
+    }
     finally{loading=false;probe.removeAttribute('src');if(nextKind==='video')probe.load();}
   }
   // Reserve real viewport space for the absolute footer. Its containing block
@@ -203,6 +210,7 @@ export function installVideoSkin(config, createAppearance, createCompatibility) 
     throw new Error('已请求切换，但未确认界面生效；请检查原生 Theme');
   }
   const api={version:1,switchNativeTheme,status,destroy,getMediaBlob:()=>mediaBlob,getSettings:model.get,getSchema:()=>model.schema,getColorLabels:()=>model.colorLabels,getPalette:()=>model.palette(system.matches),getCSS:()=>style.textContent,
+    clearMedia(){video.pause();video.removeAttribute('src');video.load();picture.removeAttribute('src');if(url)URL.revokeObjectURL(url);url=null;mediaBlob=null;kind='none';size=0;active=true;video.hidden=picture.hidden=true;updateStyles();return status();},
     setSettings:change,resetSettings(){model.reset();updateStyles();return status();},loadBlob,
     pause(){manualPause=true;syncPlayback();return status();},resume(){manualPause=false;syncPlayback();return status();},
     setDim:value=>change({dim:value}),setGlass:value=>{if(!Number.isFinite(value)||value<0||value>.45)throw new Error('Glass must be 0–0.45');return change({sidebar:value,composer:value,bubble:value});},

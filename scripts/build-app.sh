@@ -4,8 +4,9 @@ source "$(dirname "$0")/env.sh"
 APP="$PROJECT_DIR/dist/Codex Skin.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$PROJECT_DIR/work/app-build"
 "$NODE_BIN" scripts/build-payload.mjs "$APP/Contents/Resources/skin.js"
+"$NODE_BIN" scripts/demo-gate.mjs "$APP/Contents/Resources/preview.html"
 for arch in arm64 x86_64; do
-  /usr/bin/xcrun swiftc -parse-as-library -swift-version 5 -O -target "$arch-apple-macosx13.0" app/Bridge.swift app/main.swift -o "$PROJECT_DIR/work/app-build/CodexSkin-$arch"
+  /usr/bin/xcrun swiftc -parse-as-library -swift-version 5 -O -target "$arch-apple-macosx13.0" app/Bridge.swift app/Library.swift app/LibraryBridge.swift app/LibraryAutoSync.swift app/LibraryWindow.swift app/SkinPreview.swift app/main.swift -o "$PROJECT_DIR/work/app-build/CodexSkin-$arch"
 done
 /usr/bin/lipo -create "$PROJECT_DIR/work/app-build/CodexSkin-arm64" "$PROJECT_DIR/work/app-build/CodexSkin-x86_64" -output "$APP/Contents/MacOS/CodexSkin"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -17,8 +18,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>Codex Skin</string>
 <key>CFBundleExecutable</key><string>CodexSkin</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.3.0</string>
-<key>CFBundleVersion</key><string>3</string>
+<key>CFBundleShortVersionString</key><string>0.4.0</string>
+<key>CFBundleVersion</key><string>4</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

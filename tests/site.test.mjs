@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
+import {webcrypto} from 'node:crypto';
 test('site initializes controls and opens settings without module loading',async()=>{
  const ids=new Map();
  class Element{
   constructor(tag='div'){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.events={};this.attrs={};this.clientWidth=1200;this.clientHeight=900;this.style={values:{},setProperty(k,v){this.values[k]=v;}};this.classList={toggle(){},add(){}};this.hidden=false;}
   set id(v){this._id=v;ids.set(v,this);}get id(){return this._id;}
-  append(...nodes){this.children.push(...nodes);}setAttribute(k,v){this.attrs[k]=v;}
+  replaceChildren(...nodes){this.children=[...nodes];}append(...nodes){this.children.push(...nodes);}setAttribute(k,v){this.attrs[k]=v;}
   getBoundingClientRect(){return {left:0,top:0};} get clientLeft(){return 0;} get clientTop(){return 0;} get offsetWidth(){return 350;} get offsetHeight(){return 600;} closest(){return null;} setPointerCapture(){}
   showModal(){this.open=true;} close(){this.open=false;this.events.close?.();}
   addEventListener(k,fn){this.events[k]=fn;}focus(){}
@@ -16,7 +17,8 @@ test('site initializes controls and opens settings without module loading',async
  const html=await fs.readFile('docs/index.html','utf8');
  for(const match of html.matchAll(/<[^>]+id="([^"]+)"[^>]*>/g)){const e=new Element();e.id=match[1];e.hidden=/\bhidden\b/.test(match[0]);}
  const script=html.match(/<script src="([^"]+)" defer/)[1];
- vm.runInNewContext(await fs.readFile('docs/'+script,'utf8'),{document:{getElementById:id=>ids.get(id),createElement:tag=>new Element(tag)},matchMedia:()=>({matches:false,addEventListener(){}}),ResizeObserver:class{observe(){}},setTimeout:()=>1,clearTimeout(){},console});
+ const sandbox={crypto:webcrypto,document:{getElementById:id=>ids.get(id),createElement:tag=>new Element(tag)},matchMedia:()=>({matches:false,addEventListener(){}}),ResizeObserver:class{observe(){}},setTimeout:()=>1,clearTimeout(){},console};
+ vm.runInNewContext(await fs.readFile('docs/'+script,'utf8'),sandbox);await sandbox.__demoLibraryReady;
  assert.equal(ids.get('skin-panel').hidden,true);
  let prevented=false;ids.get('reference-link').events.click({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal(ids.get('reference-dialog').open,true);ids.get('reference-close').events.click();assert.equal(ids.get('reference-dialog').open,false);
  ids.get('skin-toggle').events.click();assert.equal(ids.get('skin-panel').hidden,false);
@@ -40,6 +42,9 @@ test('site initializes controls and opens settings without module loading',async
   if(key==='focusY')set('fit','contain');
   const input=ids.get('param-'+key);set(key,Number(input.min));const before=ids.get('demo').style.values[property];set(key,Number(input.max));assert.notEqual(ids.get('demo').style.values[property],before,key+' changes preview output');
  }
+ set('textMode','auto');const automaticLight=ids.get('demo').style.values['--p-text'];
+ ids.get('scheme').events.click();assert.notEqual(ids.get('demo').style.values['--p-text'],automaticLight,'auto palette follows the preview scheme, not the host OS');
+ ids.get('scheme').events.click();assert.equal(ids.get('demo').style.values['--p-text'],automaticLight);
  set('taskMode','off');assert.equal(ids.get('demo').dataset.task,'off');
  set('safeArea','none');assert.equal(ids.get('param-safeStrength').disabled,true);
  set('textMode','dark');const lightText=ids.get('demo').style.values['--p-text'];set('textMode','light');assert.notEqual(ids.get('demo').style.values['--p-text'],lightText);
@@ -54,4 +59,18 @@ test('site initializes controls and opens settings without module loading',async
  header.events.dblclick(pointer);assert.equal(panel.style.left,'');assert.equal(panel.style.top,'');
  header.events.pointerdown({...pointer,target:{closest:()=>true}});header.events.pointermove({...pointer,clientX:150});assert.equal(panel.style.left,'');
  ids.get('skin-close').events.click();assert.equal(panel.hidden,true);
+ // Shared personal-library model: save a copy, edit, switch while keeping a draft.
+ ids.get('demo-copy-name').value='网页测试皮肤';await ids.get('demo-copy').events.click();
+ assert.match(ids.get('demo-save-state').textContent,/网页测试皮肤/);
+ set('dim',.4);await ids.get('demo-save').events.click();
+ assert.match(ids.get('demo-save-state').textContent,/已保存/);
+ set('dim',.7);ids.get('demo-draft-choice').value='keep';
+ ids.get('demo-library').value=ids.get('demo-library').children[0].value;
+ await ids.get('demo-apply').events.click();
+ const draftOption=ids.get('demo-library').children.find(o=>o.value.startsWith('draft:'));
+ assert.ok(draftOption,'kept draft is visible for resuming');
+ ids.get('demo-library').value=draftOption.value;await ids.get('demo-apply').events.click();
+ assert.equal(Number(ids.get('param-dim').value),.7);
+ assert.match(ids.get('demo-save-state').textContent,/未保存草稿/);
+
 });

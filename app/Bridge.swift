@@ -110,7 +110,11 @@ final class SkinBridge {
             let data: Data
             switch message { case .data(let d): data = d; case .string(let s): data = Data(s.utf8); @unknown default: throw SkinError("未知连接响应。") }
             guard let result = try JSONSerialization.jsonObject(with: data) as? [String: Any], result["id"] as? Int == 1 else { continue }
-            guard result["error"] == nil, let body = result["result"] as? [String: Any], body["exceptionDetails"] == nil else { throw SkinError("换肤代码执行失败。请重试，或恢复原生界面。") }
+            guard result["error"] == nil, let body = result["result"] as? [String: Any] else { throw SkinError("换肤连接执行失败，请重试") }
+            if let details = body["exceptionDetails"] as? [String: Any] {
+                let description = (details["exception"] as? [String: Any])?["description"] as? String ?? "换肤代码执行失败"
+                throw SkinError(String((description.components(separatedBy:"\n").first ?? description).prefix(240)))
+            }
             return (body["result"] as? [String: Any])?["value"] ?? NSNull()
         }
     }
@@ -138,8 +142,8 @@ final class SkinBridge {
         guard count > 0 else { throw SkinError("没有找到受支持的 Codex 主窗口。") }
         switch action {
         case "apply": return active ? "已应用到 \(count) 个窗口。关闭本 App 后，背景仍会继续播放。" : "皮肤设置已加载。请在 Codex 右下角选择一个视频或图片。"
-        case "settings": return "已在 Codex 中打开皮肤设置。"
-        case "restore": return "已恢复原生界面。已保存的背景与参数仍然保留。"
+        case "settings": return "已打开皮肤设置"
+        case "restore": return "已恢复原生界面"
         default: return active ? "Codex 已连接 · 皮肤正在运行" : "Codex 已连接 · 尚未应用背景"
         }
     }

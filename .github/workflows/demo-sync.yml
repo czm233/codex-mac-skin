@@ -1,0 +1,20 @@
+name: Demo sync
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+permissions:
+  contents: read
+jobs:
+  demo-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Chrome availability
+        run: google-chrome --version
+      - name: Verify committed artifacts and headless parity
+        run: npm run test:sync

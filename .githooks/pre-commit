@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+source "$ROOT/scripts/env.sh"
+"$NODE_BIN" scripts/check-staged.mjs

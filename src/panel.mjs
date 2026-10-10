@@ -1,5 +1,5 @@
 // Original settings UI. All controls live in an isolated Shadow DOM.
-export async function attachSettings(api, options) {
+export async function attachSettings(api, options, createLibrarySession) {
   const schema={...api.getSchema()};delete schema.compatibleTheme;delete schema.settings;const labels=api.getColorLabels(),settings=()=>api.getSettings();
   // Remove abandoned hosts left by an interrupted or failed older installation.
   document.querySelectorAll('#cvs-controls').forEach(host=>host.remove());
@@ -25,7 +25,8 @@ export async function attachSettings(api, options) {
     </style>
     <section id="panel" aria-label="皮肤设置" hidden>
       <header><div class="header-title"><h2>皮肤设置</h2><button id="help-toggle" aria-label="查看皮肤设置说明" aria-haspopup="dialog" aria-controls="help">?</button></div><div id="feedback" hidden><span id="feedback-icon" aria-hidden="true">✓</span><span id="feedback-text" role="status" aria-live="polite" aria-atomic="true"></span></div><button id="close" aria-label="关闭设置">×</button></header>
-      <dialog id="help" aria-labelledby="help-title"><div class="row"><h2 id="help-title">皮肤设置说明</h2><button id="help-close" aria-label="关闭说明" autofocus>×</button></div><p>切换 Dark / Light 会同步切换 Codex 的 Theme，两套参数独立保存，共用背景文件。</p><p>标题旁的复制按钮将该项复制到另一套；全部同步会覆盖另一套所有参数，均可撤销或重做。</p><p>透明度 0% 为实底，100% 为完全透明；文字不会随之变淡。</p><p>支持本地视频或图片，最大 64 MiB。参数按背景自动保存，导出配置不包含背景文件。</p><p>焦点调整背景位置；安全区增加渐变遮罩；任务页模式仅影响聊天页面。</p><p>颜色支持 6 位或 8 位 HEX，自定义颜色优先。实色对比度不代表视频上的实际对比度。</p><p id="contrast"></p><p id="notice" role="status" aria-live="polite"></p></dialog>
+      <dialog id="help" aria-labelledby="help-title"><div class="row"><h2 id="help-title">皮肤设置说明</h2><button id="help-close" aria-label="关闭说明" autofocus>×</button></div><p>切换 Dark / Light 会同步切换 Codex 的 Theme，两套参数独立保存，共用背景文件。</p><p>标题旁的复制按钮将该项复制到另一套；全部同步会覆盖另一套所有参数，均可撤销或重做。</p><p>透明度 0% 为实底，100% 为完全透明；文字不会随之变淡。</p><p>支持本地视频或图片，最大 64 MiB。调整自动保留草稿；App 打开时自动接收保存和草稿，关闭时先保存在页面，下次打开自动入库。导出配置不包含背景，完整皮肤包请在 App 导出。</p><p>焦点调整背景位置；安全区增加渐变遮罩；任务页模式仅影响聊天页面。</p><p>颜色支持 6 位或 8 位 HEX，自定义颜色优先。实色对比度不代表视频上的实际对比度。</p><p id="contrast"></p><p id="notice" role="status" aria-live="polite"></p></dialog>
+      <div class="group" id="library-controls"><strong id="skin-name">当前皮肤</strong><p id="skin-save-state" role="status">正在读取个人皮肤…</p><div class="actions"><button id="skin-save">保存皮肤</button><button id="skin-copy">另存为</button></div><label class="subtle" for="skin-copy-name">另存名称</label><input id="skin-copy-name" type="text" maxlength="100" placeholder="给新皮肤起个名字" style="width:100%;padding:6px;border-radius:6px"></div>
       <div class="group"><div class="row"><div class="scheme-switch"><span>Dark</span><button id="variant" type="button" role="switch" aria-label="Light 方案" aria-checked="false"></button><span>Light</span></div><button id="sync-all">全部同步到 Light</button></div><p id="filename"></p><div class="row"><button id="choose">更换背景</button><button id="play">暂停视频</button></div><input id="file" type="file" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp,.mov" hidden></div>
       <details id="section-surfaces" open><summary>透明度与文字</summary><div class="fields" id="surfaces"></div></details>
       <details id="section-background"><summary>背景与外观</summary><div class="fields" id="background"></div></details>
@@ -39,7 +40,8 @@ export async function attachSettings(api, options) {
   const on=(node,event,fn)=>node.addEventListener(event,fn,{signal:listeners.signal});
   const system=matchMedia('(prefers-color-scheme: dark)');on(system,'change',()=>render());on(window,'cvs-theme-change',()=>followNative());
   let mediaId=options.id,name=options.name||'当前背景',busy=false,dead=false,db=null,queue=Promise.resolve(),remembered=true;
-  let past=[],future=[],profiles=null,editing='dark',switching=false;
+  let past=[],future=[],profiles=null,editing='dark',switching=false,library=null,libraryApplying=false;
+  const libraryRender=error=>{el('skin-save-state').textContent=error||(library?(library.status().dirty?'草稿已保留，尚未保存皮肤':library.status().pending?'已保存到页面，待 App 同步':'已同步到个人库'):'个人库未就绪');el('skin-name').textContent=library?.status().name||'当前皮肤';el('skin-save').disabled=el('skin-copy').disabled=!library||libraryApplying;};
   const clone=value=>JSON.parse(JSON.stringify(value));
   const other=()=>editing==='dark'?'light':'dark';
   const snapshot=()=>{profiles[editing]=settings();return clone(profiles);};
@@ -63,7 +65,7 @@ export async function attachSettings(api, options) {
     showMessage(message);
   }
   const notice=text=>{el('notice').textContent=text;};
-  const save=()=>{try{localStorage.setItem('cvs-settings:'+mediaId,JSON.stringify({version:2,profiles:snapshot()}));notice(remembered?'已自动保存到本机。':'参数已保存；背景文件未保存，下次需重新选择。');}catch{notice('当前调整已生效，但本机存储不可用，未保存。');}};
+  const save=()=>{if(libraryApplying)return;if(library){library.changed({asset:api.getMediaBlob()?mediaId:null,profiles:snapshot()}).catch(error=>libraryRender(error.message));return;}try{localStorage.setItem('cvs-settings:'+mediaId,JSON.stringify({version:2,profiles:snapshot()}));notice(remembered?'已自动保存到本机。':'参数已保存；背景文件未保存，下次需重新选择。');}catch{notice('当前调整已生效，但本机存储不可用，未保存。');}};
   const restoreSettings=()=>{
     api.resetSettings();
     editing=api.status().actualTheme==='light'?'light':'dark';
@@ -143,8 +145,8 @@ export async function attachSettings(api, options) {
     }
     for(const role of Object.keys(labels)){el('color-'+role).value=p[role].slice(0,7);el('hex-'+role).value=p[role];}
     el('contrast').textContent='正文 / 面板实色对比度 '+contrast(p.text,p.panel)+':1';
-    el('play').disabled=status.mediaKind==='image';el('play').textContent=status.mediaKind==='image'?'图片背景':status.manualPause?'继续播放':'暂停视频';
-    el('speed').disabled=status.mediaKind==='image';el('undo').disabled=!past.length;el('redo').disabled=!future.length;
+    el('play').disabled=status.mediaKind!=='video';el('play').textContent=status.mediaKind==='none'?'纯色背景':status.mediaKind==='image'?'图片背景':status.manualPause?'继续播放':'暂停视频';
+    el('speed').disabled=status.mediaKind!=='video';el('undo').disabled=!past.length;el('redo').disabled=!future.length;
     if(el('section-config').open)el('css-preview').value=api.getCSS();
   }
   const dragHeader=el('panel').querySelector('header');
@@ -218,12 +220,15 @@ export async function attachSettings(api, options) {
       if(dead)return;
       try{await api.loadBlob(file);}catch{throw new Error('这个文件编码无法播放，请使用 H.264 MP4、WebM 或 PNG / JPEG / WebP。');}
       if(dead)return;
-      mediaId=id;name=file.name||'已保存的背景';restoreSettings();render();remembered=!!db;
+      mediaId=id;name=file.name||'已保存的背景';if(!library)restoreSettings();render();remembered=!!db;
+      if(db)await transaction('readwrite',store=>store.put({blob:file,name,id},'asset:'+id));
       if(persist&&db){try{await transaction('readwrite',store=>store.put({blob:file,name,id},'active'));}catch{remembered=false;}}
       if(!dead)save();
     }finally{busy=false;el('choose').disabled=false;}
   }
   on(el('file'),'change',()=>{const file=el('file').files[0];el('file').value='';if(file)queue=load(file).catch(error=>notice(error.message));});
+  on(el('skin-save'),'click',()=>{if(library)queue=library.changed({asset:api.getMediaBlob()?mediaId:null,profiles:snapshot()}).then(()=>library.save()).catch(error=>libraryRender(error.message));});
+  on(el('skin-copy'),'click',()=>{if(library)queue=library.changed({asset:api.getMediaBlob()?mediaId:null,profiles:snapshot()}).then(()=>library.save(el('skin-copy-name').value)).catch(error=>libraryRender(error.message));});
   api.settingsPanel={show:()=>show(true),load,whenIdle:()=>queue,exportConfig,importConfig,render};
   restoreSettings();render();notice('调整即时生效，参数按背景自动保存。');
   try{
@@ -234,5 +239,61 @@ export async function attachSettings(api, options) {
     else if(api.getMediaBlob())await transaction('readwrite',store=>store.put({blob:api.getMediaBlob(),name,id:mediaId},'active'));
     else {notice('选择一个本地视频或图片开始。');show(true);}
   }catch{remembered=false;notice('背景存储或恢复失败，当前预览仍可使用。');}
+  if(db&&createLibrarySession){
+    try {
+      if(options.migrationConfig){const legacy=JSON.parse(options.migrationConfig);profiles=validateProfiles(legacy.version===2?legacy.profiles:seed(legacy.settings));applyProfile();render();}
+      const current=async()=>{
+        const blob=api.getMediaBlob();
+        if(blob){const bytes=await blob.arrayBuffer();mediaId=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');await transaction('readwrite',store=>store.put({blob,name,id:mediaId},'asset:'+mediaId));}
+        return {asset:blob?mediaId:null,profiles:snapshot()};
+      };
+      const applyContent=async content=>{
+        const next=validateProfiles(content.profiles),before={blob:api.getMediaBlob(),name,mediaId,profiles:snapshot()};
+        libraryApplying=true;
+        try {
+          if(content.asset){const media=await transaction('readonly',store=>store.get('asset:'+content.asset));if(!media)throw new Error('背景未缓存，请在 App 中重新应用');await api.loadBlob(media.blob);mediaId=content.asset;name=media.name;}
+          else {api.clearMedia();mediaId='unselected';name='纯色背景';}
+          profiles=next;applyProfile();past=[];future=[];render();
+        } catch(error) {
+          if(before.blob)await api.loadBlob(before.blob);else api.clearMedia();
+          mediaId=before.mediaId;name=before.name;profiles=before.profiles;applyProfile();render();throw error;
+        } finally {libraryApplying=false;}
+      };
+      const initial=await current();
+      library=await createLibrarySession({
+        read:()=>transaction('readonly',store=>store.get('library-session')),
+        write:(state,expected)=>new Promise((resolve,reject)=>{
+          const tx=db.transaction('media','readwrite'),store=tx.objectStore('media'),request=store.get('library-session');let error;
+          request.onsuccess=()=>{if((request.result?.generation||0)!==expected){error=new Error('另一窗口修改了草稿，当前调整未保存；请先导出配置，再重新打开 Codex');tx.abort();}else {
+            const assets=[...new Set([state.baseline,state.content,...state.operations.map(o=>o.content),...state.kept.map(d=>d.content)].map(c=>c.asset).filter(Boolean))];
+            let remaining=assets.length;
+            if(!remaining)store.put(state,'library-session');
+            for(const asset of assets){const check=store.getKey('asset:'+asset);check.onsuccess=()=>{if(check.result===undefined){error=new Error('背景尚未保存，请重新选择背景后再保存皮肤');tx.abort();}else if(--remaining===0)store.put(state,'library-session');};}
+          }};
+          tx.oncomplete=()=>resolve();tx.onerror=tx.onabort=()=>reject(error||tx.error||new Error('草稿保存失败'));
+        }),
+        current:()=>Promise.resolve(initial),apply:applyContent,notify:libraryRender,
+        backup:async()=>{const parameters={};for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key.startsWith('cvs-settings:'))parameters[key]=localStorage.getItem(key);}await transaction('readwrite',store=>store.put({parameters,media:initial.asset,createdAt:new Date().toISOString()},'legacy-backup'));}
+      });
+      if(options.preferSaved||library.content().asset===initial.asset)await library.restore();else await library.changed(initial);
+      let transfer=null;
+      api.settingsPanel.library={
+        status:library.status,snapshot:async()=>{await library.changed({asset:api.getMediaBlob()?mediaId:null,profiles:snapshot()});return library.snapshot();},acknowledge:library.acknowledge,
+        checkpoint:()=>library.changed({asset:api.getMediaBlob()?mediaId:null,profiles:snapshot()}),
+        activate:async(skin,decision)=>{await library.idle();el('panel').inert=true;try{const result=await library.activate(skin,decision);libraryRender();return result;}catch(error){el('panel').inert=false;throw error;}},
+        finalize:async()=>{await library.finalize();el('panel').inert=false;return true;},
+        rollback:async()=>{try{return await library.rollback();}finally{el('panel').inert=false;}},
+        discardDraft:library.discardDraft,
+        assetInfo:async hash=>{const media=await transaction('readonly',store=>store.get('asset:'+hash));if(!media)throw new Error('页面素材缺失');return {name:media.name,mime:media.blob.type,size:media.blob.size};},
+        assetChunk:async(hash,offset)=>{const media=await transaction('readonly',store=>store.get('asset:'+hash));if(!media||!Number.isInteger(offset)||offset<0)throw new Error('素材读取无效');const bytes=new Uint8Array(await media.blob.slice(offset,offset+196608).arrayBuffer());let str='';for(const byte of bytes)str+=String.fromCharCode(byte);return btoa(str);},
+        begin:meta=>{if(!/^[a-f0-9]{64}$/.test(meta.hash)||!Number.isInteger(meta.size)||meta.size<=0||meta.size>67108864)throw new Error('素材传输无效');transfer={...meta,parts:[],length:0};return true;},
+        append:encoded=>{if(!transfer)throw new Error('传输未开始');const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));if(transfer.length+bytes.length>transfer.size)throw new Error('素材超出长度');transfer.parts.push(bytes);transfer.length+=bytes.length;return true;},
+        finish:async()=>{const data=transfer;transfer=null;if(!data||data.length!==data.size)throw new Error('素材传输不完整');const blob=new Blob(data.parts,{type:data.mime}),hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),x=>x.toString(16).padStart(2,'0')).join('');if(hash!==data.hash)throw new Error('素材校验失败');await transaction('readwrite',store=>store.put({blob,name:data.name,id:hash},'asset:'+hash));return true;},
+        backup:()=>transaction('readonly',store=>store.get('legacy-backup'))
+      };
+      const oldIdle=api.settingsPanel.whenIdle;api.settingsPanel.whenIdle=async()=>{await oldIdle();await library.idle();};
+      libraryRender();
+    } catch(error){libraryRender('个人库恢复失败：'+error.message);}
+  } else libraryRender('页面存储不可用，个人库未连接');
   return {panel:true,videoRestored:mediaId!==options.id};
 }

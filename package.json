@@ -1,6 +1,6 @@
 {
   "name": "codex-video-skin",
-  "version": "0.3.0",
+  "version": "0.4.0-dev.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,12 @@
     "build:app": "bash scripts/build-app.sh",
     "acceptance:app": "bash scripts/acceptance-app.sh",
     "build:dmg": "bash scripts/build-dmg.sh",
-    "build:site": "node scripts/build-site.mjs"
+    "build:site": "node scripts/build-site.mjs",
+    "acceptance:ui": "node scripts/acceptance-ui.mjs",
+    "test:sync": "node --test tests/demo-sync.test.mjs",
+    "check:sync": "node scripts/demo-gate.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
+    "build:all": "npm run build:site && npm run build:app"
   },
   "engines": {
     "node": ">=22"
