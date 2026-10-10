@@ -65,3 +65,15 @@
 
 #panel-drag{cursor:grab;user-select:none;touch-action:none}
 #skin-panel[data-dragging] #panel-drag{cursor:grabbing}
+
+/* Keep scrolling messages physically separate from the translucent composer. */
+.demo{height:min(900px,calc(100dvh - 48px));min-height:420px}
+.demo .app-body{overflow:hidden;min-height:0}
+.demo .conversation{position:relative;overflow:hidden;padding:0;min-height:0;display:flex;flex-direction:column}
+.demo .chat-scroll{flex:1 1 0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;display:flex;flex-direction:column;padding:40px 270px 20px 60px}
+.chat-scroll>*{flex-shrink:0}
+.demo .composer{flex:0 0 auto;margin:12px 270px 58px 60px}
+.demo .sidebar,#skin-panel{overflow:auto;overscroll-behavior:contain}
+@media(max-width:1200px){.demo .chat-scroll{padding:32px 210px 20px 32px}.demo .composer{margin:12px 210px 58px 32px}}
+@media(max-width:800px){.demo .chat-scroll{padding:25px 20px 16px}.demo .composer{margin:12px 20px 58px}}
+@media(max-width:540px){.demo .app-body{display:flex;flex-direction:column;overflow:hidden}.demo .sidebar{flex:0 0 90px;height:90px}.demo .conversation{flex:1;min-height:0;padding:0;overflow:hidden}.demo .chat-scroll{padding:20px 15px 16px}.demo .composer{margin:10px 15px 58px;min-height:80px}}
