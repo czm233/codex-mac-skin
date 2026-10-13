@@ -224,9 +224,22 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
     }
     // Composer and transcript share a scroller. Transparency must reveal only video.
     await c.evaluate(`(()=>{const host=document.createElement('div');host.id='clip-fixture';host.style.cssText='position:fixed;left:0;top:0;width:500px;height:400px;z-index:15';host.innerHTML='<div class="thread-scroll-container" style="height:100%;overflow:auto"><div data-thread-user-message-navigation-content id="clip-transcript" style="height:1200px;background:#863b63;clip-path:inset(0px)">Chat content</div><div data-thread-scroll-footer style="position:absolute;bottom:0;left:0;width:100%"><div data-composer-surface-variant id="clip-composer" style="height:80px"><textarea id="clip-input" style="width:200px;height:30px;margin:0"></textarea></div></div></div>';document.getElementById('root').append(host);window.clipTestTranscript=document.getElementById('clip-transcript');window.clipTestScroll=host.firstElementChild;${KEY}.setSettings({composer:0});})()`);
+    // ResizeObserver runs on rendering frames, not a wall-clock deadline. Hosted
+    // Chrome can render later than 100ms; wait for the actual viewport boundary.
+    // Keep hit-testing and scroll anchoring assertions independent below.
+    const waitForComposerLayout=async()=>{
+      let geometry;
+      const deadline=Date.now()+3000;
+      do {
+        geometry=await c.evaluate(`(()=>{const s=window.clipTestScroll,c=document.getElementById('clip-composer');return {bottom:s.getBoundingClientRect().bottom,top:c.getBoundingClientRect().top,height:s.style.height,composerHeight:c.getBoundingClientRect().height};})()`);
+        if(geometry.bottom===geometry.top)return;
+        await sleep(25);
+      } while(Date.now()<deadline);
+      assert.fail(`Composer layout did not settle: ${JSON.stringify(geometry)}`);
+    };
     for(const [height,scrollTop] of [[80,0],[160,250],[110,650]]){
       await c.evaluate(`document.getElementById('clip-composer').style.height='${height}px';document.querySelector('#clip-fixture .thread-scroll-container').scrollTop=${scrollTop}`);
-      await sleep(100);
+      await waitForComposerLayout();
       const geometry=await c.evaluate(`(()=>{const t=document.getElementById('clip-transcript'),c=document.getElementById('clip-composer'),r=window.clipTestScroll.getBoundingClientRect(),cr=c.getBoundingClientRect();return {bottom:r.bottom,top:cr.top,above:document.elementsFromPoint(300,cr.top-5).some(e=>e===t||t.contains(e)),below:document.elementsFromPoint(300,cr.top+5).some(e=>e===t||t.contains(e)),composerClip:getComputedStyle(c).clipPath,bg:getComputedStyle(c).backgroundColor};})()`);
       assert.equal(geometry.bottom,geometry.top,'real scroll viewport ends above the input');
       assert.equal(geometry.above,true);assert.equal(geometry.below,false);
@@ -235,22 +248,23 @@ test('real Chromium: H.264 decode, playback, pause, loop, switch and clean resto
     // Deliberately do not yield an animation frame: scrolling cannot outrun CSS overflow.
     assert.equal(await c.evaluate(`(()=>{const s=window.clipTestScroll,t=window.clipTestTranscript;for(let i=0;i<80;i++){s.scrollTop=(i%2)*850;const y=document.getElementById('clip-composer').getBoundingClientRect().top+5;if(document.elementsFromPoint(300,y).some(e=>e===t||t.contains(e)))return false;}return true;})()`),true);
     await c.evaluate(`window.clipTestScroll.scrollTop=200;document.getElementById('clip-composer').style.height='140px'`);
-    await sleep(100);
+    await waitForComposerLayout();
     assert.equal(await c.evaluate(`window.clipTestScroll.scrollTop`),200,'resizing composer preserves reading position');
-    await c.evaluate(`window.clipTestScroll.scrollTop=window.clipTestScroll.scrollHeight;document.getElementById('clip-composer').style.height='110px'`);await sleep(100);
+    await c.evaluate(`window.clipTestScroll.scrollTop=window.clipTestScroll.scrollHeight;document.getElementById('clip-composer').style.height='110px'`);await waitForComposerLayout();
     assert.equal(await c.evaluate(`Math.abs(window.clipTestScroll.scrollHeight-window.clipTestScroll.clientHeight-window.clipTestScroll.scrollTop)<2`),true,'last message remains reachable after resizing');
     await c.evaluate(`window.clipTestScroll.style.display='flex';window.clipTestScroll.style.flexDirection='column-reverse';window.clipTestTranscript.style.flexShrink='0';window.clipTestScroll.scrollTop=-300`);
     const reverseTop=await c.evaluate(`window.clipTestTranscript.getBoundingClientRect().top`);
-    await c.evaluate(`document.getElementById('clip-composer').style.height='160px'`);await sleep(100);
+    await c.evaluate(`document.getElementById('clip-composer').style.height='160px'`);await waitForComposerLayout();
     assert.equal(await c.evaluate(`window.clipTestTranscript.getBoundingClientRect().top`),reverseTop,'native reverse-flow history stays in place');
-    await c.evaluate(`window.clipTestScroll.scrollTop=0;document.getElementById('clip-composer').style.height='110px'`);await sleep(100);
+    await c.evaluate(`window.clipTestScroll.scrollTop=0;document.getElementById('clip-composer').style.height='110px'`);await waitForComposerLayout();
     assert.equal(await c.evaluate(`window.clipTestScroll.scrollTop`),0,'native reverse-flow latest stays anchored');
     await c.call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:50,y:300});
     await c.call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:50,y:300});
     await c.call('Input.insertText',{text:'Composer remains editable'});
     assert.equal(await c.evaluate(`document.getElementById('clip-input').value`),'Composer remains editable');
     const clipShot=await c.call('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(ROOT,'work/composer-clip-test.png'),Buffer.from(clipShot.data,'base64'));
-    await c.evaluate(`document.getElementById('clip-fixture').remove()`);await sleep(100);
+    await c.evaluate(`document.getElementById('clip-fixture').remove()`);
+    for(let i=0;i<120&&await c.evaluate(`window.clipTestScroll.style.height!=='100%'`);i++)await sleep(25);
     assert.equal(await c.evaluate(`window.clipTestTranscript.style.clipPath`),'inset(0px)','transcript clipping is untouched');
     assert.equal(await c.evaluate(`window.clipTestScroll.style.height`),'100%','original viewport restored on cleanup');
     await c.evaluate(`delete window.clipTestTranscript;delete window.clipTestScroll`);
