@@ -6,9 +6,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
     var window: NSWindow!
     let bridge = SkinBridge()
     var library: SkinLibrary?
+    let connectionStatus = NSTextField(labelWithString: "◌ 检查连接中")
     let status = NSTextField(wrappingLabelWithString: "")
     let progress = NSProgressIndicator()
-    let table = NSTableView()
+    let table = SkinTableView()
     var rows: [[String: Any]] = []
     var activeId: String?
     var buttons: [NSButton] = []
@@ -16,6 +17,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
     let footer = NSStackView()
     var footerHeight: NSLayoutConstraint?
     let emptyState = NSTextField(labelWithString: "暂无皮肤")
+    enum ConnectionState { case checking, disconnected, connecting, connected }
+    var connectionState: ConnectionState = .checking {
+        didSet {
+            let labels: [ConnectionState: String] = [.checking: "◌ 检查连接中", .disconnected: "○ 未连接", .connecting: "◌ 正在连接", .connected: "● 已连接"]
+            connectionStatus.stringValue = labels[connectionState] ?? "○ 未连接"
+            connectionStatus.textColor = connectionState == .connected ? .systemGreen : .secondaryLabelColor
+            updateControls()
+        }
+    }
     var working = false
     var automaticSync: LibraryAutoSync?
     var lastSyncKey: String?
@@ -32,9 +42,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
         fileMenu.addItem(actionItem("新建皮肤", action: "new", key: "n"))
         fileMenu.addItem(actionItem("导入…", action: "import", key: "o"))
         fileMenu.addItem(actionItem("导出…", action: "export"))
+        fileMenu.addItem(.separator())
+        fileMenu.addItem(withTitle: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         let skinMenu = NSMenu(title: "皮肤"), skinItem = NSMenuItem()
         skinItem.title = "皮肤"; skinItem.submenu = skinMenu; menu.addItem(skinItem)
-        for (title, action) in [("应用", "apply"), ("重命名…", "rename"), ("复制", "duplicate"), ("删除…", "delete"), ("检查连接", "check"), ("恢复原生界面", "restore")] { skinMenu.addItem(actionItem(title, action: action)) }
+        for (title, action) in [("应用", "apply"), ("重命名…", "rename"), ("复制", "duplicate"), ("删除…", "delete"), ("连接 Codex", "check"), ("恢复原生界面", "restore")] { skinMenu.addItem(actionItem(title, action: action)) }
         makeWindow()
         do { let args=CommandLine.arguments
             let testRoot:URL? = args.firstIndex(of:"--acceptance-library").flatMap {i in i+1<args.count ? URL(fileURLWithPath:args[i+1]) : nil}
@@ -50,13 +62,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
                 self?.automaticSyncError = "自动保存失败：" + error.localizedDescription
                 self?.setStatus(self?.automaticSyncError ?? "")
             })
-            automaticSync?.start()
+            automaticSync?.start(interval: 3_000_000_000)
         }
     }
     func synchronizeAutomatically() async throws {
+        // The same poll checks readiness and receives changes; it never launches Codex.
+        guard let url = await refreshConnection() else { lastSyncKey = nil; return }
         guard let library = library else { return }
-        // Disconnection is normal. Reconnect automatically without launching Codex.
-        guard let url = try? await bridge.libraryTarget() else { lastSyncKey = nil; return }
         guard (try? await bridge.evaluate("!!window.__codexVideoSkinV1?.settingsPanel", at: url)) as? Bool == true else { lastSyncKey = nil; return }
         try await bridge.prepareLibrary(library, at: url)
         let snapshot = try await bridge.librarySnapshot(at: url)
@@ -70,8 +82,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
         if let message = automaticSyncError, status.stringValue == message { setStatus("") }
         automaticSyncError = nil
     }
+    @discardableResult func refreshConnection() async -> URL? {
+        do {
+            let url = try await bridge.libraryTarget()
+            connectionState = .connected
+            return url
+        } catch {
+            connectionState = .disconnected
+            return nil
+        }
+    }
     func button(_ title: String, id: String) -> NSButton {
-        let b = NSButton(title: title, target: self, action: #selector(clicked(_:))); b.bezelStyle = .rounded; b.controlSize = .regular; b.identifier = NSUserInterfaceItemIdentifier(id); b.setAccessibilityIdentifier("skin-" + id); buttons.append(b); return b
+        let b = SkinToolbarButton(title: title, target: self, action: #selector(clicked(_:))); b.bezelStyle = .rounded; b.controlSize = .regular; b.identifier = NSUserInterfaceItemIdentifier(id); b.setAccessibilityIdentifier("skin-" + id); buttons.append(b); return b
     }
     @objc func clicked(_ sender: NSButton) { execute(sender.identifier?.rawValue ?? "") }
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
@@ -104,7 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
     }
     func approveRestart() -> Bool {
         let alert = NSAlert(); alert.messageText = "需要重新启动 Codex"; alert.informativeText = "重启将中断正在执行的任务。"
-        alert.addButton(withTitle: "取消"); alert.addButton(withTitle: "重启并应用"); return alert.runModal() == .alertSecondButtonReturn
+        alert.addButton(withTitle: "取消"); alert.addButton(withTitle: "重启并连接"); return alert.runModal() == .alertSecondButtonReturn
     }
     func draftDecision() -> String? {
         let alert = NSAlert(); alert.messageText = "当前皮肤还有未保存的调整"
@@ -113,13 +135,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
     }
     func execute(_ action: String) {
         if let i = CommandLine.arguments.firstIndex(of: "--smoke"), CommandLine.arguments.count > i+1, action != CommandLine.arguments[i+1] { return }
-        guard !working else { return }; working = true; buttons.forEach {$0.isEnabled=false}; table.isEnabled=false; progress.startAnimation(nil); setStatus("正在处理…")
+        guard !working else { return }
+        if !CommandLine.arguments.contains("--smoke"), !canExecute(action) { return }
+        working = true; buttons.forEach {$0.isEnabled=false}; table.isEnabled=false; progress.startAnimation(nil); setStatus("正在处理…")
         Task {
             await automaticSync?.finishPending()
             var success = false
             do {
                 guard let library = library else { throw SkinError("个人库未就绪，请检查本机存储后重新打开 App") }
+                if action == "apply" || action == "restore" || (action == "delete" && selected?["draftId"] != nil) {
+                    guard await refreshConnection() != nil else { throw SkinError("连接已断开，请连接 Codex 后重试") }
+                }
                 switch action {
+                case "check":
+                    if !CommandLine.arguments.contains("--smoke") {
+                        connectionState = .connecting
+                        try await bridge.launchReady { self.approveRestart() }
+                    }
+                    guard await refreshConnection() != nil else { throw SkinError("未连接 Codex") }
+                    setStatus("")
                 case "preview":
                     try await verifyPreview()
                 case "layout":
@@ -154,7 +188,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
                     if panel.runModal() == .OK,let url=panel.url {try library.exportPackage(id).write(to:url,options:.atomic);setStatus("已导出")}
                 case "apply":
                     let choice=selected
-                    if action=="apply" {try await bridge.launchReady {self.approveRestart()}}
                     let url=try await bridge.libraryTarget();try await bridge.prepareLibrary(library,at:url)
                     _ = try await bridge.syncLibrary(library,at:url)
                     if action=="apply",let original=choice {
@@ -172,7 +205,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTa
                 default: setStatus(try await bridge.perform(action))
                 }
                 success=true
-            } catch {setStatus(error.localizedDescription)}
+            } catch {
+                if ["check", "apply", "restore"].contains(action) || (action == "delete" && selected?["draftId"] != nil) {
+                    _ = await refreshConnection()
+                }
+                setStatus(error.localizedDescription)
+            }
             if status.stringValue == "正在处理…" { setStatus("") }
             progress.stopAnimation(nil);table.isEnabled=true;working=false;updateControls();setStatus(status.stringValue)
             if CommandLine.arguments.contains("--smoke") {

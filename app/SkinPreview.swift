@@ -30,11 +30,13 @@ import WebKit
         web.setAccessibilityIdentifier("skin-preview")
         web.allowsBackForwardNavigationGestures = false
         let heading = NSTextField(labelWithString: "效果预览")
-        heading.font = .systemFont(ofSize: 13, weight: .medium)
+        heading.font = .systemFont(ofSize: 12, weight: .medium)
+        heading.textColor = .secondaryLabelColor
         scheme.selectedSegment = 0
         scheme.target = self; scheme.action = #selector(changeScheme)
         scheme.setAccessibilityIdentifier("preview-scheme")
         playback.bezelStyle = .texturedRounded
+        playback.isBordered = false
         playback.target = self; playback.action = #selector(togglePlayback)
         playback.setAccessibilityIdentifier("preview-playback")
         updatePlaybackButton()
@@ -44,18 +46,18 @@ import WebKit
         message.alignment = .center; message.setAccessibilityIdentifier("preview-message")
         for view in [header, web, message] { view.translatesAutoresizingMaskIntoConstraints = false; addSubview(view) }
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: topAnchor, constant: 18),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+            header.topAnchor.constraint(equalTo: topAnchor, constant: 22),
+            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
             header.heightAnchor.constraint(equalToConstant: 28),
             web.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 16),
-            web.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            web.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-            web.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20),
+            web.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            web.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+            web.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -24),
             message.centerXAnchor.constraint(equalTo: web.centerXAnchor),
             message.centerYAnchor.constraint(equalTo: web.centerYAnchor),
-            message.leadingAnchor.constraint(greaterThanOrEqualTo: web.leadingAnchor, constant: 20),
-            message.trailingAnchor.constraint(lessThanOrEqualTo: web.trailingAnchor, constant: -20)
+            message.leadingAnchor.constraint(greaterThanOrEqualTo: web.leadingAnchor, constant: 24),
+            message.trailingAnchor.constraint(lessThanOrEqualTo: web.trailingAnchor, constant: -24)
         ])
         web.wantsLayer = true; web.layer?.cornerRadius = 12; web.layer?.masksToBounds = true
         web.isHidden = true; scheme.isEnabled = false; playback.isHidden = true

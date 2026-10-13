@@ -55,7 +55,7 @@ final class SkinBridge {
     func verifyOwner() throws {
         let url = try codexURL()
         let pids = try listenerPIDs()
-        guard !pids.isEmpty else { throw SkinError("Codex 尚未开启换肤连接。请点击“启动并应用皮肤”。") }
+        guard !pids.isEmpty else { throw SkinError("Codex 尚未开启换肤连接。请点击“连接 Codex”。") }
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).filter { $0.bundleURL?.standardizedFileURL == url.standardizedFileURL && pids.contains($0.processIdentifier) }
         guard apps.count == 1, let root = apps.first else { throw SkinError("端口 10270 被其他进程占用，未连接或终止任何程序。") }
         let rows = try runTool("/bin/ps", ["-axo", "pid=,ppid=,command="])
@@ -134,7 +134,7 @@ final class SkinBridge {
             default: expression = "({active:!!window.__codexVideoSkinV1?.status().active})"
             }
             let result = try await evaluate(expression, at: url) as? [String: Any] ?? [:]
-            if result["missing"] as? Bool == true { throw SkinError("尚未加载皮肤，请先点击“启动并应用皮肤”。") }
+            if result["missing"] as? Bool == true { throw SkinError("尚未加载皮肤，请先连接 Codex 并应用皮肤。") }
             if action == "restore" && result["restored"] as? Bool != true { throw SkinError("恢复尚未完成，请重试。") }
             active = active || result["active"] as? Bool == true
             count += 1

@@ -30,6 +30,7 @@ test('Pages download and instructions advance only for published stable assets',
  assert.match(next,/releases\/download\/v0.4.0\/Codex-Skin-0.4.0-macOS.dmg/);
  assert.doesNotMatch(next,/v0.3.0/);
  assert.match(next,/选择皮肤预览后点击/);
+ assert.doesNotMatch(next.match(/<!--RELEASE_START-->(.*?)<!--END_RELEASE_START-->/s)[1],/连接 Codex|底部状态栏/);
  assert.doesNotMatch(next,/当前下载的 .* 不包含这些能力/);
  const legacy=release('0.3.0');legacy.assets.pop();assert.match(renderReleaseLinks(html,legacy),/尚未包含在当前下载的 v0.3.0/);
  assert.throws(()=>renderReleaseLinks(html,release('0.4.0-dev.1')),/正式版/);
